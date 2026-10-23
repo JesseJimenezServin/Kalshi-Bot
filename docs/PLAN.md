@@ -62,8 +62,8 @@ section; `bot/clock.py` (one injectable clock, needed for exact replay);
 - [x] 2.7 Status/result updater for recorded markets (needed for the historical model and calibration).
 - [x] 2.8 Scanner + WS tasks; clean SIGINT/SIGTERM shutdown.
 - [x] 2.9 `monitoring/alerts.py` minimum: alert on crash and errors.
-- [ ] 2.10 Deploy somewhere that stays on 24h (decision B).
-- [ ] 2.11 **Acceptance:** 24h without crashing; report on markets found, books recorded, resyncs, errors. **Stop.**
+- [x] 2.10 Deploy somewhere that stays on 24h (decision B).
+- [~] 2.11 **Acceptance:** 24h without crashing; report on markets found, books recorded, resyncs, errors. **Stop.**
 - [ ] 2.12 *(Optional, recommended)* Opportunity census: how often did a new market sit ≥20¢ from a simple sibling-implied price? Shows whether the edge exists before Phases 3–4.
 
 **Phase 2 progress (2026-10-23):** 2.1–2.9 built, 171 tests pass. Live checks
@@ -79,7 +79,14 @@ against production, read-only:
   awaiting its own command replies (handlers now go through a queue), and
   "already emitted" lived only in memory (now `markets.emitted_at`).
 
-Remaining: 2.10 (host, decision B), 2.11 (24 h run), 2.12 (optional census).
+**2.10 done 2026-10-23:** deployed commit `2e64aa2` to the lab droplet as systemd
+`kalshi-bot` (see deploy/README.md), below the lab in CPU/IO/memory priority,
+at 75% of the account rate limit. Startup: 458 series swept in 49 s, 1,293
+markets registered, lifecycle feed connected, 65 MB RSS, lab services active.
+
+**2.11 run started 2026-10-23 17:38 UTC; 24 h ends 2026-10-24 17:38 UTC**, which
+covers the 2026-10-24 14:00 UTC open burst. Check with `kalshi-bot stats`.
+Known gap: the bot's database is not yet in the lab's backup jobs.
 
 ## Phase 3 — Fair value
 - [ ] 3.1 `FairValue` type and `estimate(market, context)` interface.
@@ -128,7 +135,7 @@ explicit approval; the owner makes the mode switch.
 
 ## Open decisions (needed before the phase noted)
 - **A. Data source — DECIDED 2026-10-22.** Paper mode and recording read *production* market data, read-only. The owner's experience on the liquidity lab: demo "does very little" (lab notes 2026-08-31: mock funds, not reflective of real markets). Phase 1 acceptance uses production reads. Phase 6 (order mechanics) is decided when we reach it: demo for plumbing only, or tiny live orders with explicit approval.
-- **B. 24h host (before 2.10).** Laptop sleeps; the lab droplet is frozen until 11-05. Recommended: a second $6/month droplet.
+- **B. 24h host — DECIDED 2026-10-23:** the lab droplet, alongside the lab, at lower priority (owner's choice over a second droplet).
 - **C. Thin-book exits (before 4.9).** Spec doesn't say what happens after the 5¢ slippage cap + alert; recommended: stop re-quoting, hold, alert. Also note the 15¢ stop is smaller than the 20¢ entry edge. Rules unchanged without approval; every exit logged so Phase 5 can judge them.
 - **D. "Similar parameters" for the historical model (before 3.6).** Proposal for weather: same series, same strike, similar time of year — refined on real data.
 - **E. External weather adapter (before 3.10).** NWS API is free. Add at the end of Phase 3, or later?
