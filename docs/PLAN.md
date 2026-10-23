@@ -175,6 +175,26 @@ dropped 31/40 markets until the sweep (8.7 min late). Fixed by caching
 event_lifecycle plus throttled retries. **The 24 h clock restarted again,
 22:41 UTC; it ends 2026-10-24 22:41 UTC.**
 
+**Next-steps 1-3 done (2026-10-23):**
+1. `bot/analysis/opening.py`: an opening-move measure for every recorded
+   market, against its own 45-75 min consensus. It covers single-market
+   events the census cannot.
+2. `kalshi-bot category-study`: the trade-based cross-category study, made
+   reproducible. Unsigned public requests, so no account rate budget.
+3. The census reports per category, and `kalshi-bot census` prints both.
+252 tests pass, here and on the droplet (5/5 runs, after a test race the
+slower droplet exposed was fixed).
+
+**Lab and droplet items done (2026-10-23):**
+- Lab switch-in crash fixed (lab commit c12f620). Its window restarted
+  22:55 UTC and ends 2026-11-06.
+- needrestart never auto-restarts `kalshi-*` services
+  (/etc/needrestart/conf.d/90-kalshi.conf).
+- SSH is key-only (/etc/ssh/sshd_config.d/00-kalshi-hardening.conf).
+  Verified: a new key login works, and a password attempt is refused.
+- Not done: a kernel reboot is pending (no auto-reboot). Do it after the
+  lab window ends.
+
 ## Phase 4 — Signals and paper trading
 - [ ] 4.1 `fee(price, contracts)` from the confirmed formula and rounding, with tests.
 - [ ] 4.2 `signals.evaluate`: Yes/No entry, depth check, one signal per market; tests at, just above and just below the threshold.
