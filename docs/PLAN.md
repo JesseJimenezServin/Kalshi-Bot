@@ -84,7 +84,7 @@ against production, read-only:
 at 75% of the account rate limit. Startup: 458 series swept in 49 s, 1,293
 markets registered, lifecycle feed connected, 65 MB RSS, lab services active.
 
-**2.11 run started 2026-10-23 17:38 UTC; 24 h ends 2026-10-24 17:38 UTC**, which
+**2.11 run started 2026-10-23 17:38 UTC (restarted 18:16 UTC, see Phase 3 notes)**, which
 covers the 2026-10-24 14:00 UTC open burst. Check with `kalshi-bot stats`.
 **2.11a (2026-10-23 17:42 UTC):** healthy, 0 restarts, 0 warnings, lifecycle
 flowing; 923 of the registered markets already carry results (useful for the
@@ -107,17 +107,49 @@ healthcheck reads its own marker). First run uploaded; **restore verified**
 census on real data (after 2026-10-24 ~15:00 UTC).
 
 ## Phase 3 — Fair value
-- [ ] 3.1 `FairValue` type and `estimate(market, context)` interface.
-- [ ] 3.2 Sibling model, mutually exclusive: 100 − sum of other mids, clip 1–99; confirm the mutually-exclusive API field.
-- [ ] 3.3 Sibling model, strike ladders: strikes from API fields, interpolation, monotonicity.
-- [ ] 3.4 Sibling confidence from sibling spread and depth; missing-sibling handling.
-- [ ] 3.5 Tests: sums to 100, monotonicity, clipping, missing siblings.
-- [ ] 3.6 Historical model: backfill settled markets for the series; base rate by "similar parameters" (decision D); ≥20 settled; confidence from sample size.
-- [ ] 3.7 Historical model tests.
-- [ ] 3.8 `engine.py`: highest confidence, or confidence-weighted average when ≥2 agree within 5¢; min-confidence cutoff; log every estimate.
-- [ ] 3.9 Combining tests, including three models where only some agree.
-- [ ] 3.10 *(If approved, decision E)* External model: one weather adapter.
-- [ ] 3.11 **Acceptance:** tests pass; report of fair estimates beside live prices. **Stop.**
+- [x] 3.1 `FairValue` type and `estimate(market, context)` interface.
+- [x] 3.2 Sibling model, mutually exclusive: 100 − sum of other mids, clip 1–99; confirm the mutually-exclusive API field.
+- [x] 3.3 Sibling model, strike ladders: strikes from API fields, interpolation, monotonicity.
+- [x] 3.4 Sibling confidence from sibling spread and depth; missing-sibling handling.
+- [x] 3.5 Tests: sums to 100, monotonicity, clipping, missing siblings.
+- [x] 3.6 Historical model: backfill settled markets for the series; base rate by "similar parameters" (decision D); ≥20 settled; confidence from sample size.
+- [x] 3.7 Historical model tests.
+- [x] 3.8 `engine.py`: highest confidence, or confidence-weighted average when ≥2 agree within 5¢; min-confidence cutoff; log every estimate.
+- [x] 3.9 Combining tests, including three models where only some agree.
+- [ ] 3.10 *(SKIPPED pending decision E)* External model: one weather adapter.
+- [x] 3.11 **Acceptance:** tests pass; report of fair estimates beside live prices. **Stop.**
+
+**Phase 3 result (2026-10-23):** 231 tests pass. `kalshi-bot fair-report` against
+live production data (read-only) shows every model's estimate beside the live
+bid/ask.
+- Daily-high events (exclusive buckets): the sibling model tracks the market
+  at confidence 0.6-0.8. Those events summed to 97.5-103.5c, with 13/18
+  markets estimated.
+- Hourly ladders: the ladder model does not commit across a 90c cliff (0.11
+  confidence), and only 1/40 markets was estimated.
+- No executable gap of 5c or more on these established markets.
+- History: 292,619 settled markets / 38,085 events / 209 series backfilled
+  (2021-07 to 2026-10). 34,114 complete events are indexed.
+- **Decision D, as implemented (owner to confirm):** "similar" means the same
+  series, the same number of markets, the same position on the strike axis,
+  preferring +/-45 days of the same date. Historical confidence is capped at
+  0.5 < min_confidence. The live report shows why: e.g. Austin's B87.5 at 67c
+  vs a 22.9c base rate. Uncapped, that would have looked like a 44c
+  "mispricing".
+
+Bugs found on the live run and fixed during Phase 3 (all affect Phase 2
+recording):
+- False WS sequence gaps: Kalshi's `ok` replies carry a seq. There were 41
+  false gaps in ~30 min; 0 in 11,898 messages since the fix.
+- Interrupted watches were not resumed on restart. They are now, with the
+  original expiry (40 resumed on the redeploy).
+- A redundant re-stale in resync (exposed by a flaky test).
+- History overlap between the live and historical tiers broke the first
+  backfill.
+
+**The 24 h clock restarted 2026-10-23 18:16 UTC** (a restart was needed for
+the gap fix). It now ends 2026-10-24 18:16 UTC and still covers the 14:00 UTC
+burst.
 
 ## Phase 4 — Signals and paper trading
 - [ ] 4.1 `fee(price, contracts)` from the confirmed formula and rounding, with tests.
@@ -155,7 +187,7 @@ explicit approval; the owner makes the mode switch.
 - **A. Data source — DECIDED 2026-10-22.** Paper mode and recording read *production* market data, read-only. The owner's experience on the liquidity lab: demo "does very little" (lab notes 2026-08-31: mock funds, not reflective of real markets). Phase 1 acceptance uses production reads. Phase 6 (order mechanics) is decided when we reach it: demo for plumbing only, or tiny live orders with explicit approval.
 - **B. 24h host — DECIDED 2026-10-23:** the lab droplet, alongside the lab, at lower priority (owner's choice over a second droplet).
 - **C. Thin-book exits (before 4.9).** Spec doesn't say what happens after the 5¢ slippage cap + alert; recommended: stop re-quoting, hold, alert. Also note the 15¢ stop is smaller than the 20¢ entry edge. Rules unchanged without approval; every exit logged so Phase 5 can judge them.
-- **D. "Similar parameters" for the historical model (before 3.6).** Proposal for weather: same series, same strike, similar time of year — refined on real data.
+- **D. "Similar parameters" — IMPLEMENTED AS PROPOSAL 2026-10-23, owner to confirm:** same series, same event size, same strike-axis position, +/-45-day seasonal preference; confidence capped at 0.5 (below min_confidence) so it corroborates but never triggers.
 - **E. External weather adapter (before 3.10).** NWS API is free. Add at the end of Phase 3, or later?
 - **F. Alerts channel — default 2026-10-23:** `none` (alerts go to the structured log) until the owner picks Telegram or another channel.
 - **G. Credentials and repo (before 1.12).** Prod key received 2026-10-22 (Ed25519, stored at `~/.kalshi/kalshi_bot_prod.pem`; owner advised to rotate it, since it was pasted into chat; 2026-10-23 owner decided NOT to rotate). No demo key needed for Phase 1 (decision A). Still open: private GitHub repo under the same account?
