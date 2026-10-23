@@ -151,6 +151,30 @@ recording):
 the gap fix). It now ends 2026-10-24 18:16 UTC and still covers the 14:00 UTC
 burst.
 
+**Category question (2026-10-23).** Do markets open far from fair? Public
+trades for ~140 markets across 13 categories (first 10 min vs the 45-75 min
+consensus): the largest case anywhere was 40 contracts traded 24c off,
+about $8. Weather's first trade typically lands within ~1c of the +1h
+consensus. Trades understate opportunity, since a mispriced quote nobody
+hit shows no trade, so the owner chose to widen book recording to measure
+quotes directly.
+
+**Recording widened 2026-10-23 22:41 UTC** (commit at that deploy) to Climate
+and Weather, Sports (25% of events, sampled deterministically), Politics,
+Economics, Financials and Mentions: 9,204 series. Safeguards: max 600 markets
+watched at once, a disk guard at 4 GB free, and a global min_created_ts
+sweep instead of per-series queries. At startup: 99,551 markets created in
+24 h scanned, 1,280 queued to open; after 6 min, 87 watched, 0 gaps, 0
+errors, 119 MB RSS, ~7.7 snapshot rows/s. Projected ~1 GB/day at peak;
+~7 days of disk before the guard. **Run 3-7 days, then census per
+category.** The census scores mutually exclusive events only; single-market
+events need an opening-move measure (to add).
+
+Also fixed 2026-10-23: new events 404 over REST right after creation, which
+dropped 31/40 markets until the sweep (8.7 min late). Fixed by caching
+event_lifecycle plus throttled retries. **The 24 h clock restarted again,
+22:41 UTC; it ends 2026-10-24 22:41 UTC.**
+
 ## Phase 4 — Signals and paper trading
 - [ ] 4.1 `fee(price, contracts)` from the confirmed formula and rounding, with tests.
 - [ ] 4.2 `signals.evaluate`: Yes/No entry, depth check, one signal per market; tests at, just above and just below the threshold.
