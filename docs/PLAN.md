@@ -64,7 +64,7 @@ section; `bot/clock.py` (one injectable clock, needed for exact replay);
 - [x] 2.9 `monitoring/alerts.py` minimum: alert on crash and errors.
 - [x] 2.10 Deploy somewhere that stays on 24h (decision B).
 - [~] 2.11 **Acceptance:** 24h without crashing; report on markets found, books recorded, resyncs, errors. **Stop.**
-- [ ] 2.12 *(Optional, recommended)* Opportunity census: how often did a new market sit ≥20¢ from a simple sibling-implied price? Shows whether the edge exists before Phases 3–4.
+- [~] 2.12 *(Optional, recommended)* Opportunity census: how often did a new market sit ≥20¢ from a simple sibling-implied price? Shows whether the edge exists before Phases 3–4.
 
 **Phase 2 progress (2026-10-23):** 2.1–2.9 built, 171 tests pass. Live checks
 against production, read-only:
@@ -86,7 +86,25 @@ markets registered, lifecycle feed connected, 65 MB RSS, lab services active.
 
 **2.11 run started 2026-10-23 17:38 UTC; 24 h ends 2026-10-24 17:38 UTC**, which
 covers the 2026-10-24 14:00 UTC open burst. Check with `kalshi-bot stats`.
-Known gap: the bot's database is not yet in the lab's backup jobs.
+**2.11a (2026-10-23 17:42 UTC):** healthy, 0 restarts, 0 warnings, lifecycle
+flowing; 923 of the registered markets already carry results (useful for the
+Phase 3 historical model).
+
+**2.12 tool built (2026-10-23):** `kalshi-bot census` (bot/analysis/census.py),
+15 tests with hand-computed values, deployed. It needs recorded new-market
+books, so the first real run is after the 2026-10-24 14:00 UTC open. Note:
+the sibling model sees an event whose mids sum to less than 100 as *every*
+bucket being cheap, so gaps cluster by event. The report counts markets, so
+read it with that in mind.
+
+**2.13 backups (2026-10-23), added to the plan:** a daily 04:30 UTC off-box
+backup of the bot's DB to the lab's B2 bucket under `kalshi-bot/`, kept
+separate from the lab's files, staging and success marker (the lab's
+healthcheck reads its own marker). First run uploaded; **restore verified**
+(integrity ok, row counts match live, lab's 26 files untouched).
+
+**Remaining:** 2.11b (24 h report, after 2026-10-24 17:38 UTC) and the first
+census on real data (after 2026-10-24 ~15:00 UTC).
 
 ## Phase 3 — Fair value
 - [ ] 3.1 `FairValue` type and `estimate(market, context)` interface.

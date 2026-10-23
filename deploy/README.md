@@ -33,7 +33,26 @@ ssh kalshi 'systemctl status kalshi-bot'
 ssh kalshi 'journalctl -u kalshi-bot -f'                       # live JSON log
 ssh kalshi 'cd /root/kalshi_bot && ./venv/bin/kalshi-bot stats' # what was recorded
 ssh kalshi 'cd /root/kalshi_bot && ./venv/bin/kalshi-bot check' # auth + write guard
+ssh kalshi 'cd /root/kalshi_bot && ./venv/bin/kalshi-bot census' # mispricing census (2.12)
 ```
 
-Data lives in `/root/kalshi_bot/data/kalshi_bot.sqlite`. It is not yet
-covered by the lab's backups.
+Data lives in `/root/kalshi_bot/data/kalshi_bot.sqlite`.
+
+## Backups
+
+`kalshi-bot-backup.timer` runs daily at 04:30 UTC (an hour after the lab's)
+and uploads a VACUUM INTO snapshot, integrity-checked and gzipped, to
+`offbox:kalshi-db-backups-prod/kalshi-bot/`. The script is a copy of the
+lab's. Every path it writes is the bot's own: remote folder, staging
+directory and success marker
+(`/var/lib/kalshi-bot-offbox/last-success`). The lab's healthcheck reads
+the lab's marker, so this job must never touch it. Failures alert through
+the lab's ntfy topic.
+
+```bash
+ssh kalshi 'systemctl list-timers kalshi-bot-backup.timer; cat /var/lib/kalshi-bot-offbox/last-success'
+ssh kalshi 'rclone lsf offbox:kalshi-db-backups-prod/kalshi-bot/'
+```
+
+Restore verified 2026-10-23: download, gunzip, `PRAGMA integrity_check` ok,
+row counts matched live.
