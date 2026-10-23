@@ -22,6 +22,21 @@ fair_value:
   min_confidence: 0.6
   min_history: 20
   models: [sibling, historical]
+  agree_within_cents: 5        # models this close are averaged (confidence-weighted)
+  sibling:
+    # Confidence = exp(-u / scale) x liquidity, u = combined price uncertainty
+    # of the siblings in cents. At 15, siblings +/-5.6c (5c spreads x 5) give
+    # 0.69; +/-1.1c (1c spreads) give 0.93. A starting point; Phase 5
+    # calibration should set it.
+    uncertainty_scale_cents: 15
+    liquidity_ref_contracts: 50  # sibling depth that counts as fully liquid
+  historical:
+    # Capped below min_confidence: bucket base rates know nothing about the
+    # day's forecast, which the live price does, so this model may
+    # corroborate but must not trigger a trade alone until calibration
+    # justifies more (docs/PLAN.md decision D).
+    max_confidence: 0.5
+    seasonal_window_days: 45   # prefer settled events within +/- this day-of-year
 
 strategy:
   entry_threshold_cents: 20

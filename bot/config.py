@@ -77,10 +77,23 @@ class DiscoveryConfig(_Strict):
     sweep_lookback_hours: PositiveFloat
 
 
+class SiblingModelConfig(_Strict):
+    uncertainty_scale_cents: PositiveFloat
+    liquidity_ref_contracts: PositiveFloat
+
+
+class HistoricalModelConfig(_Strict):
+    max_confidence: Annotated[float, Field(ge=0, le=1)]
+    seasonal_window_days: Annotated[int, Field(ge=0, le=183)]
+
+
 class FairValueConfig(_Strict):
     min_confidence: Annotated[float, Field(ge=0, le=1)]
     min_history: PositiveInt
     models: Annotated[list[Literal["sibling", "historical", "external"]], Field(min_length=1)]
+    agree_within_cents: Cents
+    sibling: SiblingModelConfig
+    historical: HistoricalModelConfig
 
 
 class StrategyConfig(_Strict):

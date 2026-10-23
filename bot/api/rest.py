@@ -287,6 +287,9 @@ class KalshiRestClient:
         return await self._get("/historical/markets", m.MarketsPage, cursor=cursor, limit=limit,
                                series_ticker=series_ticker, event_ticker=event_ticker)
 
+    def iter_historical_markets(self, **filters: Any) -> AsyncIterator[m.Market]:
+        return self._paginate(lambda c: self.get_historical_markets(cursor=c, **filters), lambda p: p.markets)
+
     # ----------------------------------------------------------- portfolio
 
     async def get_balance(self) -> m.Balance:

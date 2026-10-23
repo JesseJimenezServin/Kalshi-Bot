@@ -243,3 +243,23 @@ class BotEventRow(Base):
     ts: Mapped[datetime]
     kind: Mapped[str] = mapped_column(String(32))
     detail: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+
+class SettledMarketRow(Base):
+    """Resolved markets for the historical model (plan 3.6), backfilled from
+    /markets?status=settled and /historical/markets. Kept apart from
+    `markets` so history never counts as discovery."""
+
+    __tablename__ = "settled_markets"
+    __table_args__ = (Index("ix_settled_series_close", "series_ticker", "close_time"),)
+
+    ticker: Mapped[str] = mapped_column(String(128), primary_key=True)
+    event_ticker: Mapped[str] = mapped_column(String(128), index=True)
+    series_ticker: Mapped[str] = mapped_column(String(64))
+    strike_type: Mapped[str | None] = mapped_column(String(24))
+    floor_strike: Mapped[float | None] = mapped_column(Float)
+    cap_strike: Mapped[float | None] = mapped_column(Float)
+    close_time: Mapped[datetime]
+    result: Mapped[str] = mapped_column(String(8))  # yes | no
+    source: Mapped[str] = mapped_column(String(12))  # live | historical
+    fetched_at: Mapped[datetime]

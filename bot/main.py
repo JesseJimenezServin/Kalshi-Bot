@@ -5,6 +5,8 @@ Entry point and CLI.
   kalshi-bot run       start the bot (Phase 2: discovery + recording, no trading)
   kalshi-bot stats     what has been recorded (Phase 2 run report)
   kalshi-bot census    how often new markets were mispriced vs siblings (plan 2.12)
+  kalshi-bot backfill-history   load settled markets for the historical model (plan 3.6)
+  kalshi-bot fair-report        fair estimates beside live prices (plan 3.11)
   kalshi-bot kill      create the KILL file: stop new orders, cancel resting ones
   kalshi-bot report    performance report (Phase 5)
 
@@ -139,6 +141,44 @@ async def cmd_census(cfg: AppConfig, hours: float, window_min: float) -> int:
     return 0
 
 
+async def cmd_backfill_history(cfg: AppConfig, only: list[str] | None) -> int:
+    from bot.clock import SystemClock
+    from bot.discovery.catalog import SeriesCatalog
+    from bot.fair_value.history import BACKFILL_RATE_SHARE, backfill, load_index
+
+    clock = SystemClock()
+    repo = Repository.from_url(resolve_db_url(cfg.file.storage.database_url, PROJECT_ROOT))
+    async with build_rest_client(cfg) as rest:
+        # Shares the account's rate limit with the running bot and the lab.
+        await rest.configure_rate_limits(share=BACKFILL_RATE_SHARE)
+        d = cfg.file.discovery
+        catalog = SeriesCatalog(rest, d.include_categories, d.exclude_series, clock)
+        await catalog.refresh()
+        series = sorted(only) if only else sorted(catalog.included)
+        print(f"backfilling {len(series)} series at {BACKFILL_RATE_SHARE:.0%} of the rate limit...")
+        added = await backfill(rest, repo, series, clock)
+    idx = load_index(repo)
+    print(f"new settled markets: {sum(added.values())} across {sum(1 for v in added.values() if v)} series; "
+          f"complete events now indexed: {idx.events}")
+    return 0
+
+
+async def cmd_fair_report(cfg: AppConfig, events: int) -> int:
+    from bot.analysis.fair_report import fair_report
+    from bot.clock import SystemClock
+    from bot.fair_value.engine import build_engine
+    from bot.fair_value.history import load_index
+
+    repo = Repository.from_url(resolve_db_url(cfg.file.storage.database_url, PROJECT_ROOT))
+    history = load_index(repo) if "historical" in cfg.file.fair_value.models else None
+    engine = build_engine(cfg.file.fair_value, history)
+    async with build_rest_client(cfg) as rest:
+        print(await fair_report(repo, rest, engine, SystemClock().utcnow(), events))
+    print(f"(history: {history.events if history else 0} settled events indexed; "
+          f"min_confidence {cfg.file.fair_value.min_confidence})")
+    return 0
+
+
 def cmd_kill() -> int:
     KILL_FILE.write_text("kill switch engaged via CLI\n")
     print(f"KILL file created at {KILL_FILE}. New orders stop; resting orders are cancelled on the next cycle.")
@@ -160,6 +200,10 @@ def cli(argv: list[str] | None = None) -> int:
     p_census = sub.add_parser("census", help="mispricing census over recorded new markets")
     p_census.add_argument("--hours", type=float, default=48.0)
     p_census.add_argument("--window-min", type=float, default=60.0)
+    p_bf = sub.add_parser("backfill-history", help="load settled markets for the historical model")
+    p_bf.add_argument("--series", nargs="*", help="only these series (default: all included)")
+    p_fr = sub.add_parser("fair-report", help="fair estimates beside live prices")
+    p_fr.add_argument("--events", type=int, default=5)
     sub.add_parser("kill", help="engage the kill switch")
     sub.add_parser("report", help="print the performance report")
     args = parser.parse_args(argv)
@@ -183,6 +227,10 @@ def cli(argv: list[str] | None = None) -> int:
         return cmd_stats(cfg, args.hours)
     if args.command == "census":
         return asyncio.run(cmd_census(cfg, args.hours, args.window_min))
+    if args.command == "backfill-history":
+        return asyncio.run(cmd_backfill_history(cfg, args.series))
+    if args.command == "fair-report":
+        return asyncio.run(cmd_fair_report(cfg, args.events))
     if args.command == "report":
         print("report: not available until Phase 5.", file=sys.stderr)
         return 1
