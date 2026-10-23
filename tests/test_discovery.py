@@ -140,11 +140,15 @@ async def test_missed_lifecycle_is_caught_by_sweep_after_restart(env: Env) -> No
     env.at(OPEN + timedelta(minutes=3))  # bot comes up three minutes after the open
     env.fake.markets = [market("KXHIGHPHIL-26OCT23-B63.5", "KXHIGHPHIL-26OCT23"),
                         market("OTHERSERIES-X-1", "OTHERSERIES-X")]
-    seen = await env.scanner.sweep()
-    assert seen == 1, "only included series are queried"
+    await env.scanner.sweep()
     assert [n.ticker for n in await env.scanner.tick()] == ["KXHIGHPHIL-26OCT23-B63.5"]
+    assert not env.repo.has_market("OTHERSERIES-X-1"), "unincluded series filtered locally"
+    # One global query for everything created since the last sweep (per-series
+    # queries stopped scaling once Sports, ~4,000 series, was included).
     sweep_calls = [r for r in env.fake.calls if r.url.path.endswith("/markets")]
-    assert all(r.url.params["mve_filter"] == "exclude" and "series_ticker" in r.url.params for r in sweep_calls)
+    assert len(sweep_calls) == 1
+    assert sweep_calls[0].url.params["mve_filter"] == "exclude" and "min_created_ts" in sweep_calls[0].url.params
+    assert "series_ticker" not in sweep_calls[0].url.params
 
 
 async def test_market_found_long_after_open_is_not_new(env: Env) -> None:
@@ -152,7 +156,9 @@ async def test_market_found_long_after_open_is_not_new(env: Env) -> None:
     env.fake.markets = [market("KXHIGHPHIL-26OCT23-B63.5", "KXHIGHPHIL-26OCT23")]
     await env.scanner.sweep()
     assert await env.scanner.tick() == []
-    assert env.repo.has_market("KXHIGHPHIL-26OCT23-B63.5"), "still recorded, just not new"
+    # Skipped before any event lookup: it can never be new, so it costs nothing.
+    assert not env.repo.has_market("KXHIGHPHIL-26OCT23-B63.5")
+    assert not any(r.url.path.startswith("/trade-api/v2/events/") for r in env.fake.calls[-2:])
 
 
 async def test_results_and_status_from_lifecycle(env: Env) -> None:
@@ -293,3 +299,40 @@ async def test_retries_are_one_lookup_per_event_and_throttled(env: Env) -> None:
     env.clock.advance(30)
     await env.scanner.tick()
     assert env.scanner.stats.retried_ok == 6 and env.scanner._unconfirmed == {}
+
+
+
+def test_event_sampling_is_deterministic_and_roughly_proportional() -> None:
+    from bot.discovery.scanner import in_sample
+    events = [f"KXNFLGAME-26OCT{d:02d}{t}" for d in range(1, 29) for t in ("NYGDAL", "KCBUF", "SFLAR", "GBCHI")]
+    kept = [e for e in events if in_sample(e, 0.25)]
+    assert kept == [e for e in events if in_sample(e, 0.25)], "same choice every time (restarts)"
+    assert 0.10 < len(kept) / len(events) < 0.40
+    assert all(in_sample(e, 1.0) for e in events)
+
+
+async def test_sampled_out_events_cost_no_rest_calls(tmp_path: Path) -> None:
+    e = Env(tmp_path)
+    e.fake.series.append({"ticker": "KXNFLGAME", "category": "Sports", "fee_type": "quadratic", "fee_multiplier": 1})
+    e.catalog = SeriesCatalog(e.rest, ["Climate and Weather", "Sports"], [], e.clock)
+    await e.catalog.refresh()
+    e.scanner = Scanner(e.rest, e.catalog, e.repo, e.clock, window_min=10, sweep_lookback_hours=24,
+                        on_new=lambda nm: None, category_sample={"Sports": 1e-9})  # type: ignore[arg-type,return-value]
+    before = len(e.fake.calls)
+    await e.scanner.on_lifecycle("market_lifecycle_v2", e.created("KXNFLGAME-26OCT26NYGDAL-NYG", "KXNFLGAME-26OCT26NYGDAL"))
+    assert len(e.fake.calls) == before and e.scanner.stats.sampled_out == 1
+    # Weather (unlisted) stays at 100%.
+    await e.scanner.on_lifecycle("market_lifecycle_v2", e.created())
+    assert e.repo.has_market("KXHIGHPHIL-26OCT23-B63.5")
+
+
+async def test_watchlist_capacity_skips_and_counts() -> None:
+    clock = FakeClock(OPEN.timestamp())
+
+    async def noop(t: list[str]) -> None:
+        pass
+
+    wl = Watchlist(clock, 60, on_watch=noop, on_unwatch=noop, max_size=2)
+    for t in ("A", "B", "C"):
+        await wl.add(NewMarket(t, "E", "S", None, OPEN, None))
+    assert len(wl) == 2 and wl.skipped_capacity == 1 and "C" not in wl

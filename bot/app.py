@@ -64,12 +64,16 @@ class Bot:
         self.alerts = Alerter.from_config(cfg, self.clock)
         d, r = cfg.file.discovery, cfg.file.recording
         self.catalog = SeriesCatalog(self.rest, d.include_categories, d.exclude_series, self.clock)
-        self.watchlist = Watchlist(self.clock, d.watch_duration_min, on_watch=self._watch, on_unwatch=self._unwatch)
+        self.watchlist = Watchlist(self.clock, d.watch_duration_min, on_watch=self._watch, on_unwatch=self._unwatch,
+                                   max_size=r.max_watched)
         self.scanner = Scanner(self.rest, self.catalog, self.repo, self.clock, window_min=d.new_market_window_min,
-                               sweep_lookback_hours=d.sweep_lookback_hours, on_new=self._on_new_market)
+                               sweep_lookback_hours=d.sweep_lookback_hours, on_new=self._on_new_market,
+                               category_sample=d.category_sample)
+        db_dir = self._db_dir(cfg.file.storage.database_url)
         self.recorder = Recorder(self.books, self.repo, self.clock, tickers=lambda: sorted(self.ws.desired),
                                  min_interval_sec=r.snapshot_min_interval_sec, heartbeat_sec=r.snapshot_heartbeat_sec,
-                                 depth_levels=r.depth_levels)
+                                 depth_levels=r.depth_levels, disk_path=db_dir, min_free_gb=r.min_free_disk_gb,
+                                 on_low_disk=self._on_low_disk)
         self.results = ResultsUpdater(self.rest, self.repo, self.clock)
         self.ws = KalshiWebSocket(cfg.ws_url, signer, self.books, self, clock=self.clock,
                                   **({"connector": ws_connector} if ws_connector else {}))
@@ -77,6 +81,18 @@ class Bot:
         self._sweep_now = asyncio.Event()
         self._tasks: list[asyncio.Task[None]] = []
         self.task_failures: dict[str, int] = {}
+
+    @staticmethod
+    def _db_dir(url: str) -> Path | None:
+        prefix = "sqlite:///"
+        if url.startswith(prefix) and ":memory:" not in url:
+            return Path(url.removeprefix(prefix)).expanduser().parent
+        return None
+
+    def _on_low_disk(self, free_gb: float) -> None:
+        self.repo.add_event("recording_paused_low_disk", free_gb=round(free_gb, 2))
+        asyncio.ensure_future(self.alerts.alert(
+            "disk", f"free disk {free_gb:.1f} GB: book recording paused to protect the droplet", level="error"))
 
     # ------------------------------------------------ WsHandlers protocol
 
@@ -153,6 +169,7 @@ class Bot:
             "pending_open": len(self.scanner.pending),
             "ws": asdict(self.ws.stats), "scanner": asdict(self.scanner.stats),
             "recorder": asdict(self.recorder.stats), "task_failures": dict(self.task_failures),
+            "skipped_capacity": self.watchlist.skipped_capacity,
         }
 
     async def _supervise(self, name: str, factory: Callable[[], Awaitable[None]]) -> None:

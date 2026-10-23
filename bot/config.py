@@ -73,6 +73,7 @@ class DiscoveryConfig(_Strict):
     watch_duration_min: PositiveFloat
     include_categories: Annotated[list[str], Field(min_length=1)]
     exclude_series: list[str]
+    category_sample: dict[str, Annotated[float, Field(gt=0, le=1)]]
     sweep_interval_min: PositiveFloat
     sweep_lookback_hours: PositiveFloat
 
@@ -127,6 +128,8 @@ class RecordingConfig(_Strict):
     snapshot_heartbeat_sec: PositiveFloat
     depth_levels: PositiveInt
     status_refresh_min: PositiveFloat
+    max_watched: PositiveInt
+    min_free_disk_gb: Annotated[float, Field(ge=0)]
 
     @model_validator(mode="after")
     def _heartbeat_not_shorter(self) -> RecordingConfig:

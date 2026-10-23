@@ -31,8 +31,13 @@ class WatchEntry:
 class Watchlist:
     def __init__(self, clock: Clock, duration_min: float, *,
                  on_watch: Callable[[list[str]], Awaitable[None]],
-                 on_unwatch: Callable[[list[str]], Awaitable[None]]) -> None:
+                 on_unwatch: Callable[[list[str]], Awaitable[None]],
+                 max_size: int | None = None) -> None:
         self._clock = clock
+        # Hard cap on markets watched at once. Beyond it a new market is
+        # skipped and counted, so the census knows what it did not see.
+        self._max = max_size
+        self.skipped_capacity = 0
         self._duration = timedelta(minutes=duration_min)
         self._on_watch = on_watch
         self._on_unwatch = on_unwatch
@@ -45,6 +50,10 @@ class Watchlist:
         start = added_at or self._clock.utcnow()
         if start + self._duration <= self._clock.utcnow():
             return False  # its watch would already have ended
+        if self._max is not None and len(self._entries) >= self._max:
+            self.skipped_capacity += 1
+            log.warning("watch_capacity_full", ticker=market.ticker, max=self._max)
+            return False
         self._entries[market.ticker] = WatchEntry(market, start, start + self._duration)
         await self._on_watch([market.ticker])
         return True

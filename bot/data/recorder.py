@@ -15,10 +15,12 @@ per pass.
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from bot.clock import Clock
@@ -34,12 +36,14 @@ class RecorderStats:
     snapshots: int = 0
     trades: int = 0
     skipped_stale: int = 0
+    paused_low_disk: bool = False
 
 
 class Recorder:
     def __init__(self, books: OrderBookStore, repo: Repository, clock: Clock, *,
                  tickers: Callable[[], list[str]], min_interval_sec: float, heartbeat_sec: float,
-                 depth_levels: int) -> None:
+                 depth_levels: int, disk_path: Path | None = None, min_free_gb: float = 0.0,
+                 on_low_disk: Callable[[float], None] | None = None) -> None:
         self._books = books
         self._repo = repo
         self._clock = clock
@@ -50,9 +54,36 @@ class Recorder:
         self._last: dict[str, tuple[float, int]] = {}  # ticker -> (recorded_at, book version)
         self._trade_buffer: list[dict[str, Any]] = []
         self.stats = RecorderStats()
+        # Disk guard. The bot shares a droplet with the liquidity lab, and a
+        # full disk would kill the lab's frozen test along with this bot.
+        # Below min_free_gb, snapshots pause (trades, far smaller, continue);
+        # they resume with 0.5 GB of hysteresis.
+        self._disk_path = disk_path
+        self._min_free = min_free_gb
+        self._on_low_disk = on_low_disk
+        self._disk_checked = float("-inf")
+
+    def _disk_ok(self, now: float) -> bool:
+        if self._disk_path is None or self._min_free <= 0:
+            return True
+        if now - self._disk_checked >= 30:
+            self._disk_checked = now
+            free_gb = shutil.disk_usage(self._disk_path).free / 1e9
+            threshold = self._min_free + (0.5 if self.stats.paused_low_disk else 0.0)
+            paused = free_gb < threshold
+            if paused and not self.stats.paused_low_disk:
+                log.error("recording_paused_low_disk", free_gb=round(free_gb, 2), min_free_gb=self._min_free)
+                if self._on_low_disk is not None:
+                    self._on_low_disk(free_gb)
+            elif not paused and self.stats.paused_low_disk:
+                log.warning("recording_resumed", free_gb=round(free_gb, 2))
+            self.stats.paused_low_disk = paused
+        return not self.stats.paused_low_disk
 
     def record_due(self) -> int:
         now = self._clock.now()
+        if not self._disk_ok(now):
+            return 0
         rows: list[dict[str, Any]] = []
         for ticker in self._tickers():
             book = self._books.get(ticker)

@@ -135,3 +135,31 @@ def test_second_instance_is_refused(tmp_path: Path) -> None:
             SingletonLock(path).acquire()
     with SingletonLock(path):  # released on exit
         pass
+
+
+
+def test_disk_guard_pauses_snapshots_with_hysteresis(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import shutil as _sh
+    from collections import namedtuple
+
+    clock = FakeClock(T0)
+    repo = Repository.from_url(f"sqlite:///{tmp_path / 'g.sqlite'}", clock)
+    books = OrderBookStore()
+    books.ensure("A").apply_snapshot(yes=[(D("0.5"), D("1"))], no=[], clock=1, now=clock.now())
+    free = {"gb": 10.0}
+    Usage = namedtuple("Usage", "total used free")
+    monkeypatch.setattr(_sh, "disk_usage", lambda p: Usage(0, 0, int(free["gb"] * 1e9)))
+    alerts: list[float] = []
+    rec = Recorder(books, repo, clock, tickers=books.tickers, min_interval_sec=0.1, heartbeat_sec=0.1,
+                   depth_levels=5, disk_path=tmp_path, min_free_gb=4, on_low_disk=alerts.append)
+    assert rec.record_due() == 1
+    free["gb"] = 3.9
+    clock.advance(31)
+    assert rec.record_due() == 0 and rec.stats.paused_low_disk and alerts == [3.9]
+    free["gb"] = 4.2  # above 4 but inside the 0.5 GB hysteresis: still paused
+    clock.advance(31)
+    assert rec.record_due() == 0
+    free["gb"] = 4.6
+    clock.advance(31)
+    assert rec.record_due() == 1 and not rec.stats.paused_low_disk
+    assert alerts == [3.9], "alerted once per episode"

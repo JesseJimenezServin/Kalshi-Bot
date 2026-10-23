@@ -11,8 +11,15 @@ discovery:
   # Matched against the SERIES category (markets carry none; the event-level
   # field is deprecated). Kalshi's name for weather is "Climate and Weather"
   # -- see docs/API_NOTES.md section 9.
-  include_categories: ["Climate and Weather"]
+  # Widened 2026-10-23 to measure which categories open far from fair
+  # (owner's decision). Recording only; nothing trades.
+  include_categories: ["Climate and Weather", "Sports", "Politics", "Economics", "Financials", "Mentions"]
   exclude_series: []
+  # Per-EVENT sampling, deterministic. Sports creates ~670 non-combo markets
+  # an hour (measured 2026-10-23); 25% keeps the shared droplet's disk safe
+  # while still sampling ~1,000 Sports events a day. Unlisted categories: 1.0.
+  category_sample:
+    Sports: 0.25
   # Fallback REST sweep of the included series, in case lifecycle messages are
   # missed (downtime, a sequence gap). The lifecycle channel is primary.
   sweep_interval_min: 30
@@ -63,6 +70,10 @@ recording:
   snapshot_heartbeat_sec: 30
   depth_levels: 10             # levels kept per side in each snapshot
   status_refresh_min: 30       # REST check of results for recorded markets
+  max_watched: 600             # markets watched at once; extras are skipped and counted
+  # Disk guard: the droplet is shared with the liquidity lab, and a full disk
+  # would kill its frozen test. Below this, book snapshots pause and alert.
+  min_free_disk_gb: 4
 
 alerts:
   channel: none                # telegram | discord | email | none

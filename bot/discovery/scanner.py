@@ -24,7 +24,8 @@ the status/result updater (plan 2.7).
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import zlib
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -32,7 +33,7 @@ from typing import Any
 from bot.api.models import Market
 from bot.api.rest import KalshiRestClient
 from bot.clock import Clock
-from bot.discovery.catalog import EventInfo, SeriesCatalog
+from bot.discovery.catalog import EventInfo, SeriesCatalog, series_prefix
 from bot.monitoring.log import get_logger
 from bot.storage.repo import Repository
 
@@ -50,6 +51,15 @@ class NewMarket:
     category: str | None
     open_time: datetime
     close_time: datetime | None
+
+
+def in_sample(event_ticker: str, fraction: float) -> bool:
+    """Deterministic per-EVENT sampling: every market of a sampled event is
+    kept together (the sibling model needs the whole event), and a restart
+    makes the same choice."""
+    if fraction >= 1.0:
+        return True
+    return zlib.crc32(event_ticker.encode()) / 2**32 < fraction
 
 
 def is_new(open_time: datetime | None, first_seen_at: datetime, now: datetime, window: timedelta) -> bool:
@@ -71,12 +81,14 @@ class ScannerStats:
     results: int = 0
     sweeps: int = 0
     retried_ok: int = 0
+    sampled_out: int = 0
 
 
 class Scanner:
     def __init__(self, rest: KalshiRestClient, catalog: SeriesCatalog, repo: Repository, clock: Clock, *,
                  window_min: float, sweep_lookback_hours: float,
-                 on_new: Callable[[NewMarket], Awaitable[None]]) -> None:
+                 on_new: Callable[[NewMarket], Awaitable[None]],
+                 category_sample: Mapping[str, float] | None = None) -> None:
         self._rest = rest
         self._catalog = catalog
         self._repo = repo
@@ -84,6 +96,7 @@ class Scanner:
         self._window = timedelta(minutes=window_min)
         self._lookback = timedelta(hours=sweep_lookback_hours)
         self._on_new = on_new
+        self._sample = dict(category_sample or {})
         self._pending: dict[str, NewMarket] = {}  # registered, not yet emitted
         # `created` messages whose event couldn't be confirmed yet: retried
         # every tick for UNCONFIRMED_RETRY_SEC.
@@ -108,7 +121,18 @@ class Scanner:
             self._pending[ticker] = NewMarket(ticker, info.event_ticker, info.series_ticker, category,
                                               open_time, close_time)
 
+    def _sampled(self, event_ticker: str) -> bool:
+        """Checked BEFORE any event lookup, from the series prefix, so
+        sampled-out events cost nothing."""
+        cat = self._catalog.category_of(series_prefix(event_ticker))
+        if cat is None or in_sample(event_ticker, self._sample.get(cat, 1.0)):
+            return True
+        self.stats.sampled_out += 1
+        return False
+
     async def register_market(self, mk: Market) -> None:
+        if not self._catalog.maybe_included(mk.event_ticker) or not self._sampled(mk.event_ticker):
+            return
         info = await self._catalog.confirm(mk.event_ticker)
         if info is None:
             return
@@ -136,6 +160,8 @@ class Scanner:
         if event_type == "created":
             meta = msg.get("additional_metadata") or {}
             event_ticker = meta.get("event_ticker") or ticker.rsplit("-", 1)[0]
+            if not self._catalog.maybe_included(event_ticker) or not self._sampled(event_ticker):
+                return
             info, retry = await self._catalog.confirm_or_retry(event_ticker)
             if info is None:
                 if retry:
@@ -218,21 +244,28 @@ class Scanner:
     # --------------------------------------------------------------- sweep
 
     async def sweep(self) -> int:
-        """REST backstop over the included series. Returns markets seen."""
+        """REST backstop: every non-combo market created since the last sweep,
+        in one paginated query, filtered locally. Per-series queries stopped
+        scaling once Sports was included (~9,000 series, ~10 min of read
+        budget per sweep); this is ~7 pages per 6 hours of creations.
+
+        Markets that opened longer ago than the new-market window are skipped
+        before any event lookup: they can never be new."""
         await self._catalog.refresh_if_due()
         now = self._clock.utcnow()
         since = self._last_sweep - timedelta(minutes=5) if self._last_sweep else now - self._lookback
-        seen = 0
-        for series in sorted(self._catalog.included):
-            async for mk in self._rest.iter_markets(series_ticker=series, min_created_ts=int(since.timestamp()),
-                                                    mve_filter="exclude"):
-                seen += 1
-                await self.register_market(mk)
+        seen = considered = 0
+        async for mk in self._rest.iter_markets(min_created_ts=int(since.timestamp()), mve_filter="exclude"):
+            seen += 1
+            if mk.open_time is not None and mk.open_time < now - self._window:
+                continue
+            considered += 1
+            await self.register_market(mk)
         self._last_sweep = now
         self.stats.sweeps += 1
-        self._repo.add_event("sweep", series=len(self._catalog.included), markets=seen, since=since.isoformat())
-        log.info("sweep_done", series=len(self._catalog.included), markets=seen)
-        return seen
+        self._repo.add_event("sweep", markets=seen, considered=considered, since=since.isoformat())
+        log.info("sweep_done", markets=seen, considered=considered)
+        return considered
 
     def recently_emitted(self, within: timedelta) -> list[tuple[NewMarket, datetime]]:
         """Markets declared new within `within`, with when -- so a restart can
