@@ -1,0 +1,27 @@
+[Unit]
+Description=Kalshi new-market bot (paper mode: read-only discovery + recording)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/kalshi_bot
+ExecStart=/root/kalshi_bot/venv/bin/kalshi-bot run
+Environment=PYTHONUNBUFFERED=1
+# The bot shuts down cleanly on SIGINT (flushes buffers, records a stop event).
+KillSignal=SIGINT
+TimeoutStopSec=30
+Restart=always
+RestartSec=10
+
+# Shares the droplet with the liquidity lab, whose test window is frozen until
+# 2026-11-05. The lab keeps priority on CPU, disk and memory.
+Nice=10
+CPUWeight=50
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+MemoryHigh=250M
+MemoryMax=350M
+
+[Install]
+WantedBy=multi-user.target
