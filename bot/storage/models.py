@@ -14,7 +14,11 @@ Deviations from the spec's column lists, all additive and all from
 docs/API_NOTES.md: book_side/intent on orders (V2 orders are bid/ask on
 YES only, section 6); exchange_index (balances are per shard, section 11);
 strike fields on markets (sibling model, section 9); inputs JSON on signals
-(the spec asks for every decision with its inputs).
+(the spec asks for every decision with its inputs). Two extra tables:
+`trades`, the raw public tape for watched markets -- the liquidity lab's
+costliest gap was not persisting it (its DATA.md section 3) -- and
+`bot_events`, operational events (reconnects, gaps, resyncs, sweeps,
+errors) for the Phase 2 run report.
 """
 
 from __future__ import annotations
@@ -100,6 +104,9 @@ class MarketRow(Base):
     floor_strike: Mapped[float | None] = mapped_column(Float)
     cap_strike: Mapped[float | None] = mapped_column(Float)
     exchange_index: Mapped[int | None] = mapped_column(Integer)
+    # When discovery declared this market new. Persisted so a restart never
+    # announces the same market twice.
+    emitted_at: Mapped[datetime | None]
     updated_at: Mapped[datetime]
 
 
@@ -212,3 +219,27 @@ class DailyPnlRow(Base):
     unrealized: Mapped[Decimal]
     fees: Mapped[Decimal]
     updated_at: Mapped[datetime]
+
+
+class TradeRow(Base):
+    __tablename__ = "trades"
+    __table_args__ = (Index("ix_trades_ticker_ts", "ticker", "ts"),)
+
+    trade_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(128))
+    ts: Mapped[datetime]
+    yes_price: Mapped[Decimal]
+    count: Mapped[Decimal]
+    taker_side: Mapped[str | None] = mapped_column(String(4))  # contract the taker bought: yes | no
+    taker_book_side: Mapped[str | None] = mapped_column(String(4))  # bid | ask on the YES leg
+    received_at: Mapped[datetime]
+
+
+class BotEventRow(Base):
+    __tablename__ = "bot_events"
+    __table_args__ = (Index("ix_bot_events_kind_ts", "kind", "ts"),)
+
+    id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    ts: Mapped[datetime]
+    kind: Mapped[str] = mapped_column(String(32))
+    detail: Mapped[dict[str, Any]] = mapped_column(JSON)

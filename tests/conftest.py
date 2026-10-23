@@ -17,13 +17,16 @@ SECRET_VARS = [
 VALID_CONFIG: dict[str, Any] = {
     "mode": "paper",
     "discovery": {"scan_interval_sec": 5, "new_market_window_min": 10, "watch_duration_min": 60,
-                  "include_categories": ["Climate and Weather"], "exclude_series": []},
+                  "include_categories": ["Climate and Weather"], "exclude_series": [],
+                  "sweep_interval_min": 30, "sweep_lookback_hours": 24},
     "fair_value": {"min_confidence": 0.6, "min_history": 20, "models": ["sibling", "historical"]},
     "strategy": {"entry_threshold_cents": 20, "min_depth_contracts": 50, "take_profit_gap_cents": 5,
                  "stop_loss_cents": 15, "max_hold_hours": 48, "pre_close_exit_min": 30,
                  "hold_to_settlement": False, "order_timeout_sec": 30, "max_exit_slippage_cents": 5},
     "risk": {"max_dollars_per_trade": 25, "max_total_exposure_dollars": 200, "max_positions_per_event": 1,
              "max_open_positions": 10, "daily_loss_limit_dollars": 50},
+    "recording": {"snapshot_min_interval_sec": 2, "snapshot_heartbeat_sec": 30, "depth_levels": 10,
+                  "status_refresh_min": 30},
     "alerts": {"channel": "none"},
     "storage": {"database_url": "sqlite:///:memory:"},
 }

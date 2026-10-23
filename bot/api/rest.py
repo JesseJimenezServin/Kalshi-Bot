@@ -231,6 +231,7 @@ class KalshiRestClient:
         min_settled_ts: int | None = None,
         max_settled_ts: int | None = None,
         mve_filter: str | None = None,
+        tickers: list[str] | None = None,
     ) -> m.MarketsPage:
         """status: unopened | open | closed | settled (the filter values, not
         Market.status). mve_filter="exclude" drops combo markets."""
@@ -240,6 +241,7 @@ class KalshiRestClient:
             min_created_ts=min_created_ts, max_created_ts=max_created_ts,
             min_close_ts=min_close_ts, max_close_ts=max_close_ts,
             min_settled_ts=min_settled_ts, max_settled_ts=max_settled_ts, mve_filter=mve_filter,
+            tickers=",".join(tickers) if tickers else None,
         )
 
     def iter_markets(self, **filters: Any) -> AsyncIterator[m.Market]:
@@ -262,6 +264,15 @@ class KalshiRestClient:
 
     async def get_historical_cutoff(self) -> m.HistoricalCutoff:
         return await self._get("/historical/cutoff", m.HistoricalCutoff)
+
+    async def get_historical_market(self, ticker: str) -> m.Market | None:
+        """A market settled before the historical cutoff. None if unknown (404)."""
+        try:
+            return (await self._get(f"/historical/markets/{ticker}", m.MarketResponse)).market
+        except KalshiAPIError as e:
+            if e.status == 404:
+                return None
+            raise
 
     async def get_historical_markets(self, cursor: str | None = None, *, limit: int = 1000,
                                      series_ticker: str | None = None,

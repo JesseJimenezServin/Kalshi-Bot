@@ -13,6 +13,10 @@ discovery:
   # -- see docs/API_NOTES.md section 9.
   include_categories: ["Climate and Weather"]
   exclude_series: []
+  # Fallback REST sweep of the included series, in case lifecycle messages are
+  # missed (downtime, a sequence gap). The lifecycle channel is primary.
+  sweep_interval_min: 30
+  sweep_lookback_hours: 24
 
 fair_value:
   min_confidence: 0.6
@@ -36,6 +40,14 @@ risk:
   max_positions_per_event: 1
   max_open_positions: 10
   daily_loss_limit_dollars: 50
+
+recording:
+  # Order book snapshots for watched markets: on change, at most once per
+  # min_interval; and at least once per heartbeat even if nothing changed.
+  snapshot_min_interval_sec: 2
+  snapshot_heartbeat_sec: 30
+  depth_levels: 10             # levels kept per side in each snapshot
+  status_refresh_min: 30       # REST check of results for recorded markets
 
 alerts:
   channel: none                # telegram | discord | email | none

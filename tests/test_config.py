@@ -94,7 +94,8 @@ def test_process_environment_overrides_env_file(config_data: dict[str, Any], wri
         load_config(write_config(config_data), env_file(CONFIRM_LIVE_TRADING="yes"))
 
 
-@pytest.mark.parametrize("section", ["mode", "discovery", "fair_value", "strategy", "risk", "alerts", "storage"])
+@pytest.mark.parametrize("section", ["mode", "discovery", "fair_value", "strategy", "risk", "recording", "alerts",
+                                     "storage"])
 def test_missing_section_is_rejected(config_data: dict[str, Any], write_config: Any, env_file: Any,
                                      section: str) -> None:
     del config_data[section]
@@ -135,6 +136,8 @@ def test_misspelled_key_is_rejected_not_ignored(config_data: dict[str, Any], wri
     ("risk", "max_open_positions", -1),
     ("risk", "daily_loss_limit_dollars", 0),
     ("alerts", "channel", "pager"),
+    ("recording", "depth_levels", 0),
+    ("recording", "snapshot_heartbeat_sec", 1),
 ])
 def test_out_of_range_values_are_rejected(config_data: dict[str, Any], write_config: Any, env_file: Any,
                                           section: str, key: str, value: object) -> None:

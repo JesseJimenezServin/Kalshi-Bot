@@ -73,6 +73,8 @@ class DiscoveryConfig(_Strict):
     watch_duration_min: PositiveFloat
     include_categories: Annotated[list[str], Field(min_length=1)]
     exclude_series: list[str]
+    sweep_interval_min: PositiveFloat
+    sweep_lookback_hours: PositiveFloat
 
 
 class FairValueConfig(_Strict):
@@ -107,6 +109,19 @@ class RiskConfig(_Strict):
         return self
 
 
+class RecordingConfig(_Strict):
+    snapshot_min_interval_sec: PositiveFloat
+    snapshot_heartbeat_sec: PositiveFloat
+    depth_levels: PositiveInt
+    status_refresh_min: PositiveFloat
+
+    @model_validator(mode="after")
+    def _heartbeat_not_shorter(self) -> RecordingConfig:
+        if self.snapshot_heartbeat_sec < self.snapshot_min_interval_sec:
+            raise ValueError("snapshot_heartbeat_sec must be >= snapshot_min_interval_sec")
+        return self
+
+
 class AlertsConfig(_Strict):
     channel: Literal["telegram", "discord", "email", "none"]
 
@@ -123,6 +138,7 @@ class FileConfig(_Strict):
     fair_value: FairValueConfig
     strategy: StrategyConfig
     risk: RiskConfig
+    recording: RecordingConfig
     alerts: AlertsConfig
     storage: StorageConfig
 

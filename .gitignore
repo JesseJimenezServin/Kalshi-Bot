@@ -4,8 +4,8 @@
 *.key
 
 # runtime
-data/
-logs/
+/data/
+/logs/
 *.sqlite
 *.sqlite-*
 *.db

@@ -18,6 +18,8 @@ dependencies = [
     "structlog==26.1.0",
     # Not in the spec's list: pydantic-settings needs it to read config.yaml.
     "PyYAML==6.0.3",
+    # Not in the spec's list: CA bundle for WebSocket TLS (see bot/api/ws.py).
+    "certifi==2026.10.19",
 ]
 
 [project.optional-dependencies]

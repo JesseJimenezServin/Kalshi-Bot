@@ -53,18 +53,33 @@ section; `bot/clock.py` (one injectable clock, needed for exact replay);
 `mve_filter=exclude` on market listing (drops combo markets).
 
 ## Phase 2 — Discovery and recording
-- [ ] 2.1 `data/orderbook.py`: snapshot + deltas, Yes/No asks derived from bids, `best_yes_bid`, `best_yes_ask`, `depth_at_or_better`. Includes the liquidity lab's float-residue (phantom level) fix and its test.
-- [ ] 2.2 `api/ws.py`: auth, dynamic tickers, sequence-gap detection → REST resync, reconnect with backoff + resubscribe. Tested against a fake WS server.
-- [ ] 2.3 `discovery/scanner.py`: 5s poll (or lifecycle channel); new = unseen ticker + opened within 10 min; store; emit NewMarket.
-- [ ] 2.4 Category and excluded-series filters, with cached event/series lookups.
-- [ ] 2.5 Watchlist: add on NewMarket, drop after 60 min or when a position opens; WS subscriptions follow.
-- [ ] 2.6 Snapshot recording: fixed cadence while watched, plus throttled change snapshots; disk-use estimate.
-- [ ] 2.7 Status/result updater for recorded markets (needed for the historical model and calibration).
-- [ ] 2.8 Scanner + WS tasks; clean SIGINT/SIGTERM shutdown.
-- [ ] 2.9 `monitoring/alerts.py` minimum: alert on crash and errors.
+- [x] 2.1 `data/orderbook.py`: snapshot + deltas, Yes/No asks derived from bids, `best_yes_bid`, `best_yes_ask`, `depth_at_or_better`. Includes the liquidity lab's float-residue (phantom level) fix and its test.
+- [x] 2.2 `api/ws.py`: auth, dynamic tickers, sequence-gap detection → REST resync, reconnect with backoff + resubscribe. Tested against a fake WS server.
+- [x] 2.3 `discovery/scanner.py`: 5s poll (or lifecycle channel); new = unseen ticker + opened within 10 min; store; emit NewMarket.
+- [x] 2.4 Category and excluded-series filters, with cached event/series lookups.
+- [x] 2.5 Watchlist: add on NewMarket, drop after 60 min or when a position opens; WS subscriptions follow.
+- [x] 2.6 Snapshot recording: fixed cadence while watched, plus throttled change snapshots; disk-use estimate.
+- [x] 2.7 Status/result updater for recorded markets (needed for the historical model and calibration).
+- [x] 2.8 Scanner + WS tasks; clean SIGINT/SIGTERM shutdown.
+- [x] 2.9 `monitoring/alerts.py` minimum: alert on crash and errors.
 - [ ] 2.10 Deploy somewhere that stays on 24h (decision B).
 - [ ] 2.11 **Acceptance:** 24h without crashing; report on markets found, books recorded, resyncs, errors. **Stop.**
 - [ ] 2.12 *(Optional, recommended)* Opportunity census: how often did a new market sit ≥20¢ from a simple sibling-implied price? Shows whether the edge exists before Phases 3–4.
+
+**Phase 2 progress (2026-10-23):** 2.1–2.9 built, 171 tests pass. Live checks
+against production, read-only:
+- Startup sweep of 458 weather series registered 1,293 markets; the
+  lifecycle feed connected and parsed real messages; 0 errors, 0 gaps.
+- A 60 s book probe on 5 live KXHIGHNY markets: every streamed book matched
+  a fresh REST snapshot exactly, including one after 303 deltas.
+- Found by the live runs and fixed: WebSocket TLS failed on this Mac (no
+  system CA bundle; now pinned to certifi, as REST already was), and the
+  startup sweep ran twice.
+- Found in review and fixed before running: the WS reader could deadlock
+  awaiting its own command replies (handlers now go through a queue), and
+  "already emitted" lived only in memory (now `markets.emitted_at`).
+
+Remaining: 2.10 (host, decision B), 2.11 (24 h run), 2.12 (optional census).
 
 ## Phase 3 — Fair value
 - [ ] 3.1 `FairValue` type and `estimate(market, context)` interface.
@@ -117,8 +132,8 @@ explicit approval; the owner makes the mode switch.
 - **C. Thin-book exits (before 4.9).** Spec doesn't say what happens after the 5¢ slippage cap + alert; recommended: stop re-quoting, hold, alert. Also note the 15¢ stop is smaller than the 20¢ entry edge. Rules unchanged without approval; every exit logged so Phase 5 can judge them.
 - **D. "Similar parameters" for the historical model (before 3.6).** Proposal for weather: same series, same strike, similar time of year — refined on real data.
 - **E. External weather adapter (before 3.10).** NWS API is free. Add at the end of Phase 3, or later?
-- **F. Alerts channel (before 2.9).** Telegram (needs bot token + chat ID) or reuse the lab's existing alert setup.
-- **G. Credentials and repo (before 1.12).** Prod key received 2026-10-22 (Ed25519, stored at `~/.kalshi/kalshi_bot_prod.pem`; owner advised to rotate it, since it was pasted into chat). No demo key needed for Phase 1 (decision A). Still open: private GitHub repo under the same account?
+- **F. Alerts channel — default 2026-10-23:** `none` (alerts go to the structured log) until the owner picks Telegram or another channel.
+- **G. Credentials and repo (before 1.12).** Prod key received 2026-10-22 (Ed25519, stored at `~/.kalshi/kalshi_bot_prod.pem`; owner advised to rotate it, since it was pasted into chat; 2026-10-23 owner decided NOT to rotate). No demo key needed for Phase 1 (decision A). Still open: private GitHub repo under the same account?
 
 ## Interpretations used unless overridden
 - Fees: total fee for the order size ÷ count = per-contract figure in the threshold check (Kalshi likely rounds per order).

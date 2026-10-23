@@ -2,7 +2,8 @@
 Entry point and CLI.
 
   kalshi-bot check     validate config, then make authenticated read-only calls
-  kalshi-bot run       start the bot (Phase 2+; refuses for now)
+  kalshi-bot run       start the bot (Phase 2: discovery + recording, no trading)
+  kalshi-bot stats     what has been recorded (Phase 2 run report)
   kalshi-bot kill      create the KILL file: stop new orders, cancel resting ones
   kalshi-bot report    performance report (Phase 5)
 
@@ -18,8 +19,11 @@ from pathlib import Path
 
 from bot.api.auth import Signer
 from bot.api.rest import KalshiRestClient, WriteForbidden
+from bot.app import Bot, lock_path_for, resolve_db_url
 from bot.config import AppConfig, ConfigError, load_config
 from bot.monitoring.log import configure_logging, get_logger
+from bot.singleton_lock import AlreadyRunning, SingletonLock
+from bot.storage.repo import Repository
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 KILL_FILE = PROJECT_ROOT / "KILL"
@@ -64,6 +68,59 @@ async def check(cfg: AppConfig, show_balance: bool) -> int:
     return 0
 
 
+async def run_bot(cfg: AppConfig) -> int:
+    db_url = resolve_db_url(cfg.file.storage.database_url, PROJECT_ROOT)
+    try:
+        with SingletonLock(lock_path_for(db_url, PROJECT_ROOT)):
+            bot = Bot(cfg, repo=Repository.from_url(db_url))
+            await bot.run_forever()
+    except AlreadyRunning as e:
+        print(f"refusing to start: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_stats(cfg: AppConfig, hours: float) -> int:
+    from datetime import timedelta
+
+    from sqlalchemy import func, select
+
+    from bot.clock import SystemClock
+    from bot.storage.models import BotEventRow, MarketRow, OrderbookSnapshotRow, TradeRow
+
+    db_url = resolve_db_url(cfg.file.storage.database_url, PROJECT_ROOT)
+    repo = Repository.from_url(db_url)
+    since = SystemClock().utcnow() - timedelta(hours=hours)
+    with repo.session() as s:
+        markets = s.scalar(select(func.count()).select_from(MarketRow).where(MarketRow.first_seen_at >= since))
+        new = s.scalar(select(func.count()).select_from(MarketRow).where(MarketRow.emitted_at >= since))
+        resolved = s.scalar(select(func.count()).select_from(MarketRow).where(MarketRow.result.is_not(None)))
+        snaps = s.scalar(select(func.count()).select_from(OrderbookSnapshotRow).where(OrderbookSnapshotRow.ts >= since))
+        snap_markets = s.scalar(select(func.count(func.distinct(OrderbookSnapshotRow.ticker)))
+                                .where(OrderbookSnapshotRow.ts >= since))
+        trades = s.scalar(select(func.count()).select_from(TradeRow).where(TradeRow.ts >= since))
+        kinds = dict(s.execute(select(BotEventRow.kind, func.count()).where(BotEventRow.ts >= since)
+                               .group_by(BotEventRow.kind)).all())
+        last_stop = s.scalars(select(BotEventRow).where(BotEventRow.kind == "stop")
+                              .order_by(BotEventRow.ts.desc()).limit(1)).first()
+    print(f"last {hours:g}h  (db: {db_url})")
+    print(f"  markets discovered      {markets}")
+    print(f"  declared new (watched)  {new}")
+    print(f"  with results (all time) {resolved}")
+    print(f"  book snapshots          {snaps}  across {snap_markets} markets")
+    print(f"  trades recorded         {trades}")
+    print("  events                  " + (", ".join(f"{k}={v}" for k, v in sorted(kinds.items())) or "none"))
+    if last_stop is not None:
+        ws = last_stop.detail.get("ws", {})
+        print(f"  last stop {last_stop.ts:%Y-%m-%d %H:%M}Z: ws gaps={ws.get('gaps')} resyncs={ws.get('resyncs')} "
+              f"reconnects={max(0, (ws.get('connects') or 1) - 1)} task_failures={last_stop.detail.get('task_failures')}")
+    path = db_url.removeprefix("sqlite:///")
+    if Path(path).exists():
+        size = sum(p.stat().st_size for p in Path(path).parent.glob(Path(path).name + "*"))
+        print(f"  database size           {size / 1e6:.1f} MB")
+    return 0
+
+
 def cmd_kill() -> int:
     KILL_FILE.write_text("kill switch engaged via CLI\n")
     print(f"KILL file created at {KILL_FILE}. New orders stop; resting orders are cancelled on the next cycle.")
@@ -80,6 +137,8 @@ def cli(argv: list[str] | None = None) -> int:
     p_check = sub.add_parser("check", help="validate config and make authenticated read-only calls")
     p_check.add_argument("--show-balance", action="store_true")
     sub.add_parser("run", help="start the bot")
+    p_stats = sub.add_parser("stats", help="what has been recorded")
+    p_stats.add_argument("--hours", type=float, default=24.0)
     sub.add_parser("kill", help="engage the kill switch")
     sub.add_parser("report", help="print the performance report")
     args = parser.parse_args(argv)
@@ -98,8 +157,9 @@ def cli(argv: list[str] | None = None) -> int:
     if args.command == "check":
         return asyncio.run(check(cfg, args.show_balance))
     if args.command == "run":
-        print("run: not available until Phase 2 (discovery + recording).", file=sys.stderr)
-        return 1
+        return asyncio.run(run_bot(cfg))
+    if args.command == "stats":
+        return cmd_stats(cfg, args.hours)
     if args.command == "report":
         print("report: not available until Phase 5.", file=sys.stderr)
         return 1
