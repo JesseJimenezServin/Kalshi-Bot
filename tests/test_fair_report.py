@@ -78,5 +78,5 @@ async def test_report_renders_estimates_beside_live_prices(tmp_path: Path) -> No
     line = next(ln for ln in text.splitlines() if ln.strip().startswith("B63.5"))
     assert "35.0" in line and line.rstrip().endswith("yes")
     assert "gaps >= 5/10/20c:" in text and "FEES PROVISIONAL" in text
-    assert "sum of mids 64.5c" in text  # 5+10+25+6.5+20+5: B63.5 is cheap, so the event sums low
+    assert "sum of mids 71.5c" in text  # 5+10+25+6.5+20+5: B63.5 is cheap, so the event sums low
     assert all(r.method == "GET" for r in fake.calls)
