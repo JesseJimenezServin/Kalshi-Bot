@@ -89,7 +89,7 @@ def opening_result(ticker: str, category: str, books: list[Book], open_time: dat
         res.first_book_sec = (books[0].ts - open_time).total_seconds()
         return res
     res.first_book_sec = (books[0].ts - open_time).total_seconds()
-    late = [b for b in books if b.ts >= open_time + CONSENSUS_FROM and b.two_sided]
+    late = [b for b in books if b.ts >= open_time + CONSENSUS_FROM and b.two_sided and b.mid() is not None]
     if not late:
         return res
     mids = [b.mid() for b in late]

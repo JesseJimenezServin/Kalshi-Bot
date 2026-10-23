@@ -92,3 +92,11 @@ def test_short_lived_markets_are_not_scored() -> None:
     assert cats["Climate and Weather"].short_lived == 1 and cats["Climate and Weather"].ge[20] == 0
     long_lived = opening_result("T", "Sports", hourly, OPEN, D(50), close_time=OPEN + timedelta(days=2))
     assert long_lived.measurable and long_lived.max_gap_with_depth is not None
+
+
+
+def test_placeholder_books_do_not_crash_or_count_toward_consensus() -> None:
+    """Regression, live: a placeholder book in the consensus window had mid None and crashed the sum."""
+    books = settles_at_60(bk(3, "0.58", "0.62")) + [bk(3000, "0.01", "0.99")]
+    r = opening_result("T", "Sports", books, OPEN, D(50))
+    assert r.consensus == D(60)

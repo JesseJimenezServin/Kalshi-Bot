@@ -30,8 +30,8 @@ confirm it against Kalshi's PDF before Phase 4.
 
 Placeholder quotes are not prices. In the first seconds market makers
 often post 1c/99c (seen live 2026-10-23); its "mid" of 50c made a
-~30-bucket event sum to ~1,434c. A book whose spread exceeds
-MAX_INFORMATIVE_SPREAD is treated as having no price, so a moment where any
+~30-bucket event sum to ~1,434c. A book that leaves the price in a range wider than
+MAX_INFORMATIVE_SPREAD (two-sided or one-sided) is treated as having no price, so a moment where any
 sibling is placeholder-quoted is skipped rather than scored.
 
 Caveat on the method itself: if a whole event opens mispriced together, the
@@ -91,9 +91,20 @@ class Book:
 
     @property
     def informative(self) -> bool:
-        """False for placeholder quotes (e.g. 1c/99c): no price information."""
+        """False for placeholder quotes: the range the book leaves the price in
+        is wider than MAX_INFORMATIVE_SPREAD. Two-sided that is ask - bid
+        (1c/99c); one-sided it is [0, ask] or [bid, 1] -- an ask-only 99c
+        placeholder "mid" of 49.5c made a 29-bucket event sum to 1,434c."""
         b, a = self.bid, self.ask
-        return not (b is not None and a is not None and a - b > MAX_INFORMATIVE_SPREAD)
+        if b is not None and a is not None:
+            width = a - b
+        elif a is not None:
+            width = a
+        elif b is not None:
+            width = ONE - b
+        else:
+            return False
+        return width <= MAX_INFORMATIVE_SPREAD
 
     def mid(self) -> Decimal | None:
         b, a = self.bid, self.ask

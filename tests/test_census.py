@@ -173,3 +173,12 @@ def test_placeholder_quotes_carry_no_price() -> None:
     obs = event_observations(books, OPEN, HOUR)
     assert {o.ts for o in obs} == {at(30)}, "the placeholder moment is skipped, not scored"
     assert open_sum_deviation(books, OPEN, HOUR) == D(0)  # first INFORMATIVE moment: 30 + 70
+
+
+
+def test_one_sided_placeholders_carry_no_price_either() -> None:
+    """Regression, live: an ask-only 99c placeholder's 'mid' 49.5c x 29 buckets ~ 1,434c."""
+    assert bk(at(0), None, "0.99").mid() is None
+    assert bk(at(0), "0.01", None).mid() is None
+    assert bk(at(0), None, "0.04").mid() == D("0.02"), "a tight one-sided bound is still a price"
+    assert bk(at(0), "0.96", None).mid() == D("0.98")
