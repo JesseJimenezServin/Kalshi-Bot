@@ -54,7 +54,9 @@ async def test_bot_discovers_subscribes_records_and_stops(tmp_path: Path, config
         await bot.start()
         try:
             # Startup sweep found the just-opened market and the feed subscribed to it.
-            await until(lambda: any(s["channel"] == "orderbook_delta" for s in server.subs.values()))
+            # Both ticker subscriptions: the bot creates them one after the other,
+            # and on a slow host (the droplet) the trade one can lag behind.
+            await until(lambda: {s["channel"] for s in server.subs.values()} >= {"orderbook_delta", "trade"})
             sid = server.sid_for("orderbook_delta")
             assert server.subs[sid]["tickers"] == {"KXHIGHPHIL-26OCT23-B63.5"}
 
