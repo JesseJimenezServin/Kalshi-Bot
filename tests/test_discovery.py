@@ -224,3 +224,27 @@ async def test_watchlist_add_expire_remove() -> None:
     clock.advance(61)
     assert await wl.expire() == ["A"]
     assert unwatched == [["B"], ["A"]] and len(wl) == 0
+
+
+async def test_restart_resumes_watches_with_original_expiry(env: Env) -> None:
+    await env.scanner.on_lifecycle("market_lifecycle_v2", env.created())
+    env.at(OPEN + timedelta(seconds=5))
+    await env.scanner.tick()  # emitted at 14:00:05
+    env.at(OPEN + timedelta(minutes=40))  # restart 40 minutes later
+    found = env.scanner.recently_emitted(timedelta(minutes=60))
+    assert [nm.ticker for nm, _ in found] == ["KXHIGHPHIL-26OCT23-B63.5"]
+    watched: list[list[str]] = []
+
+    async def on_w(t: list[str]) -> None:
+        watched.append(t)
+
+    async def on_u(t: list[str]) -> None:
+        pass
+
+    wl = Watchlist(env.clock, 60, on_watch=on_w, on_unwatch=on_u)
+    nm, at_ = found[0]
+    assert await wl.add(nm, added_at=at_) is True and watched == [["KXHIGHPHIL-26OCT23-B63.5"]]
+    env.at(OPEN + timedelta(minutes=60, seconds=6))
+    assert await wl.expire() == ["KXHIGHPHIL-26OCT23-B63.5"], "expires 60 min after the ORIGINAL emission"
+    late = Watchlist(env.clock, 60, on_watch=on_w, on_unwatch=on_u)
+    assert await late.add(nm, added_at=at_) is False, "a watch that would already have ended is not resumed"

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import signal
+from datetime import timedelta
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from pathlib import Path
@@ -180,6 +181,13 @@ class Bot:
         await self.catalog.refresh()
         d, r = self.cfg.file.discovery, self.cfg.file.recording
         await self.scanner.sweep()  # catch anything created while we were down
+        # Resume watches a restart interrupted, keeping their original expiry.
+        resumed = 0
+        for nm, emitted_at in self.scanner.recently_emitted(timedelta(minutes=d.watch_duration_min)):
+            resumed += await self.watchlist.add(nm, added_at=emitted_at)
+        if resumed:
+            log.info("watches_resumed", markets=resumed)
+            self.repo.add_event("watches_resumed", markets=resumed)
         await self.scanner.tick()
         specs: list[tuple[str, Callable[[], Awaitable[None]]]] = [
             ("ws", self.ws.run),

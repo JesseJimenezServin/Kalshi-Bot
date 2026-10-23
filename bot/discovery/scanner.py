@@ -191,6 +191,19 @@ class Scanner:
         log.info("sweep_done", series=len(self._catalog.included), markets=seen)
         return seen
 
+    def recently_emitted(self, within: timedelta) -> list[tuple[NewMarket, datetime]]:
+        """Markets declared new within `within`, with when -- so a restart can
+        resume watching them instead of silently dropping them."""
+        from sqlalchemy import select
+
+        from bot.storage.models import MarketRow
+
+        since = self._clock.utcnow() - within
+        with self._repo.session() as s:
+            rows = list(s.scalars(select(MarketRow).where(MarketRow.emitted_at >= since)))
+        return [(NewMarket(r.ticker, r.event_ticker, r.series_ticker, r.category, r.open_time, r.close_time),
+                 r.emitted_at) for r in rows if r.open_time is not None and r.emitted_at is not None]
+
     @property
     def pending(self) -> dict[str, NewMarket]:
         return dict(self._pending)

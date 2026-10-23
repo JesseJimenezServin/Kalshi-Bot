@@ -38,11 +38,14 @@ class Watchlist:
         self._on_unwatch = on_unwatch
         self._entries: dict[str, WatchEntry] = {}
 
-    async def add(self, market: NewMarket) -> bool:
+    async def add(self, market: NewMarket, added_at: datetime | None = None) -> bool:
+        """`added_at` lets a restart resume a watch with its ORIGINAL expiry."""
         if market.ticker in self._entries:
             return False
-        now = self._clock.utcnow()
-        self._entries[market.ticker] = WatchEntry(market, now, now + self._duration)
+        start = added_at or self._clock.utcnow()
+        if start + self._duration <= self._clock.utcnow():
+            return False  # its watch would already have ended
+        self._entries[market.ticker] = WatchEntry(market, start, start + self._duration)
         await self._on_watch([market.ticker])
         return True
 

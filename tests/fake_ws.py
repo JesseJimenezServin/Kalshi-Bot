@@ -15,6 +15,7 @@ class FakeKalshiWS:
         self.commands: list[dict[str, Any]] = []
         self.handshake_headers: list[dict[str, str]] = []
         self.subs: dict[int, dict[str, Any]] = {}  # sid -> {"channel", "tickers"}
+        self.seqs: dict[int, int] = {}  # sid -> last seq sent
         self._next_sid = 1
         self._conn: ServerConnection | None = None
         self._server: Server | None = None
@@ -69,12 +70,20 @@ class FakeKalshiWS:
                 sub["tickers"].update(p["market_tickers"])
             elif p["action"] == "delete_markets":
                 sub["tickers"].difference_update(p["market_tickers"])
-            await conn.send(json.dumps({"id": cid, "sid": sid, "type": "ok",
+            # Like the real server: an ok reply carries the NEXT seq of that
+            # subscription (docs example: {"id":123,"sid":456,"seq":222,"type":"ok"}).
+            await conn.send(json.dumps({"id": cid, "sid": sid, "seq": self.next_seq(sid), "type": "ok",
                                         "msg": {"market_tickers": sorted(sub["tickers"])}}))
         elif name == "unsubscribe":
             for sid in p["sids"]:
                 self.subs.pop(sid, None)
             await conn.send(json.dumps({"id": cid, "type": "unsubscribed", "sid": p["sids"][0]}))
+
+    def next_seq(self, sid: int) -> int:
+        """Consume and return the next sequence number of a subscription."""
+        n = self.seqs.get(sid, 0) + 1
+        self.seqs[sid] = n
+        return n
 
     def sid_for(self, channel: str) -> int:
         return next(sid for sid, s in self.subs.items() if s["channel"] == channel)

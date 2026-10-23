@@ -332,9 +332,11 @@ class KalshiWebSocket:
                 sub.tickers.difference_update(hit)
 
     async def _resync(self, sub: _Sub) -> None:
+        # The books were already marked stale, synchronously, when the gap was
+        # seen. Marking them again here could re-stale a snapshot that landed
+        # in between (a flaky test exposed it, 2026-10-23).
         self.stats.resyncs += 1
         tickers = sorted(sub.tickers)
-        self.books.mark_stale(tickers)
         log.warning("ws_resync", sid=sub.sid, tickers=len(tickers))
         await self._command("update_subscription",
                             {"sids": [sub.sid], "market_tickers": tickers, "action": "get_snapshot"})
@@ -354,6 +356,12 @@ class KalshiWebSocket:
         kind = data.get("type")
         cid = data.get("id")
         if cid is not None and cid in self._pending and kind in ("subscribed", "ok", "unsubscribed", "error"):
+            # A reply can carry a seq on its subscription (Kalshi's `ok` does).
+            # It is part of that subscription's sequence: skipping it made the
+            # next message look like a gap (found live, 2026-10-23).
+            reply_sub = self._subs.get(data.get("sid")) if data.get("sid") is not None else None
+            if reply_sub is not None and data.get("seq") is not None:
+                reply_sub.next_seq = int(data["seq"]) + 1
             fut = self._pending[cid]
             if not fut.done():
                 fut.set_result(data)

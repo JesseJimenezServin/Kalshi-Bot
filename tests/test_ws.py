@@ -118,19 +118,24 @@ async def test_sequence_gap_marks_stale_and_requests_snapshot(setup: Any) -> Non
     server, client, books, _rec, _ = setup
     await client.add_markets(["A"])
     sid = server.sid_for("orderbook_delta")
-    await server.push(snapshot(sid, 1, "A", [["0.40", "10.00"]], []))
+    nxt = lambda: server.next_seq(sid)  # noqa: E731 - one counter, like the real server
+    await server.push(snapshot(sid, nxt(), "A", [["0.40", "10.00"]], []))
     await until(lambda: not books.get("A").stale)
 
-    await server.push(delta(sid, 5, "A", "yes", "0.40", "-10.00"))  # seq 2-4 lost
+    for _ in range(3):
+        nxt()  # three messages lost in transit
+    await server.push(delta(sid, nxt(), "A", "yes", "0.40", "-10.00"))
     await until(lambda: any(c["params"].get("action") == "get_snapshot" for c in server.cmds("update_subscription")))
     assert books.get("A").stale, "nothing may trade on a book with a hole in it"
     assert books.get("A").best_yes_bid() == (D("0.40"), D("10")), "the out-of-order delta was dropped"
     assert client.stats.gaps == 1 and client.stats.resyncs == 1
 
-    await server.push(delta(sid, 6, "A", "yes", "0.40", "-1.00"))  # deltas on a stale book are ignored
-    await server.push(snapshot(sid, 7, "A", [["0.39", "3.00"]], []))
+    # The resync's ok reply consumed a seq; the snapshot that answers it is next.
+    await until(lambda: server.seqs[sid] == 6)
+    await server.push(snapshot(sid, nxt(), "A", [["0.39", "3.00"]], []))
     await until(lambda: not books.get("A").stale)
     assert books.get("A").yes_bids == {D("0.39"): D("3")}
+    assert client.stats.gaps == 1, "the reply's seq is counted, so the snapshot is in order"
 
 
 async def test_lifecycle_forwarded_and_gap_reported(setup: Any) -> None:
@@ -196,3 +201,20 @@ async def test_market_limit_opens_another_subscription() -> None:
         assert sorted(sorted(s["tickers"]) for s in book_subs) == [["A", "B"], ["C"]]
         await client.stop()
         task.cancel()
+
+
+async def test_command_replies_consume_seq_and_are_not_gaps(setup: Any) -> None:
+    """Regression, found live 2026-10-23: Kalshi's `ok` reply to
+    update_subscription carries the subscription's next seq. Ignoring it made
+    the following delta look like a gap -> resync -> another ok -> another
+    'gap', a loop that kept books stale (and unrecorded)."""
+    server, client, books, _rec, _ = setup
+    await client.add_markets(["A"])
+    sid = server.sid_for("orderbook_delta")
+    await server.push(snapshot(sid, server.next_seq(sid), "A", [["0.40", "10.00"]], []))
+    await until(lambda: not books.get("A").stale)
+    await client.add_markets(["B"])  # -> update_subscription -> ok carrying the next seq
+    await server.push(delta(sid, server.next_seq(sid), "A", "yes", "0.41", "1.00"))
+    await until(lambda: books.get("A").best_yes_bid() == (D("0.41"), D("1")))
+    assert client.stats.gaps == 0 and client.stats.resyncs == 0
+    assert not books.get("A").stale
