@@ -154,3 +154,20 @@ def test_confidence_always_within_bounds(cap: float) -> None:
     market, ctx = ctx_for(T0 + timedelta(days=100))
     fv = model(HistoryIndex(build_events(rows)), seasonal_window_days=183, max_confidence=cap).estimate(market, ctx)
     assert fv is not None and 0.0 <= fv.confidence <= cap
+
+
+async def test_backfill_tolerates_a_market_in_both_tiers(tmp_path: Path) -> None:
+    """Regression (first real backfill): a market mid-handoff is returned by
+    /markets AND /historical/markets; inserting it twice broke the batch."""
+    clock = FakeClock(datetime(2026, 10, 23, tzinfo=UTC).timestamp())
+    repo = Repository.from_url(f"sqlite:///{tmp_path / 'h.sqlite'}", clock)
+    fake = FakeRest()
+    both = [market(f"KXHIGHPHIL-26AUG20-{t}", "KXHIGHPHIL-26AUG20", status="finalized",
+                   result="yes" if i == 0 else "no", close_time="2026-08-21T05:00:00Z",
+                   strike_type=st, floor_strike=fl, cap_strike=cp) for i, (t, st, fl, cp) in enumerate(LADDER)]
+    fake.markets = both
+    fake.routes["/historical/markets"] = lambda r: {"markets": both, "cursor": ""}
+    assert await backfill(fake.client(clock), repo, ["KXHIGHPHIL"], clock) == {"KXHIGHPHIL": 4}
+    with repo.session() as s:
+        from bot.storage.models import SettledMarketRow
+        assert {r.source for r in s.query(SettledMarketRow)} == {"live"}

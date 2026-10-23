@@ -38,12 +38,19 @@ def _row(mk: Market, series: str, source: str, now: datetime) -> dict[str, objec
 
 
 def upsert_settled(repo: Repository, rows: list[dict[str, object]]) -> int:
+    """Insert unseen tickers. A market can appear in BOTH tiers while Kalshi
+    hands it from live to historical (docs/API_NOTES.md section 12) -- found
+    on the first real backfill, 2026-10-23 -- so the batch is deduplicated
+    first; the first occurrence (live) wins."""
     if not rows:
         return 0
+    unique: dict[object, dict[str, object]] = {}
+    for r in rows:
+        unique.setdefault(r["ticker"], r)
     with repo.session() as s:
         existing = set(s.scalars(select(SettledMarketRow.ticker)
-                                 .where(SettledMarketRow.ticker.in_([r["ticker"] for r in rows]))))
-        fresh = [SettledMarketRow(**r) for r in rows if r["ticker"] not in existing]  # type: ignore[arg-type]
+                                 .where(SettledMarketRow.ticker.in_(list(unique)))))
+        fresh = [SettledMarketRow(**r) for t, r in unique.items() if t not in existing]  # type: ignore[arg-type]
         s.add_all(fresh)
         return len(fresh)
 
