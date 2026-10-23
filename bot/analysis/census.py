@@ -28,6 +28,12 @@ FEE IS PROVISIONAL: 0.07 * p * (1 - p) per contract (taker), from an
 unverified secondary source (docs/API_NOTES.md section 7). The owner is to
 confirm it against Kalshi's PDF before Phase 4.
 
+Placeholder quotes are not prices. In the first seconds market makers
+often post 1c/99c (seen live 2026-10-23); its "mid" of 50c made a
+~30-bucket event sum to ~1,434c. A book whose spread exceeds
+MAX_INFORMATIVE_SPREAD is treated as having no price, so a moment where any
+sibling is placeholder-quoted is skipped rather than scored.
+
 Caveat on the method itself: if a whole event opens mispriced together, the
 siblings carry the same error and the sibling model cannot see it. The
 census measures what the sibling model can see, which is what the strategy
@@ -50,6 +56,7 @@ if TYPE_CHECKING:
 ONE = Decimal(1)
 HUNDRED = Decimal(100)
 THRESHOLDS_CENTS = (5, 10, 20)
+MAX_INFORMATIVE_SPREAD = Decimal("0.50")  # dollars
 
 
 def provisional_taker_fee_cents(price: Decimal) -> Decimal:
@@ -82,8 +89,16 @@ class Book:
     def two_sided(self) -> bool:
         return bool(self.yes_bids and self.yes_asks)
 
+    @property
+    def informative(self) -> bool:
+        """False for placeholder quotes (e.g. 1c/99c): no price information."""
+        b, a = self.bid, self.ask
+        return not (b is not None and a is not None and a - b > MAX_INFORMATIVE_SPREAD)
+
     def mid(self) -> Decimal | None:
         b, a = self.bid, self.ask
+        if not self.informative:
+            return None
         if b is not None and a is not None:
             return (b + a) / 2
         if a is not None:

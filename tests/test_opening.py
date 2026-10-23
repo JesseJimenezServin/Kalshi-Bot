@@ -79,3 +79,16 @@ def test_run_opening_reads_recorded_books(tmp_path: Path) -> None:
                           [[str(p), str(s)] for p, s in b.yes_asks])
     cats = run_opening(repo, OPEN - timedelta(hours=1), D(50))
     assert cats["Sports"].ge[20] == 1
+
+
+
+def test_short_lived_markets_are_not_scored() -> None:
+    """Regression, first live run: an hourly temperature market's 45-75 min
+    'consensus' is the reading arriving, so its move is outcome, not mispricing."""
+    hourly = settles_at_60(bk(3, "0.20", "0.25"))
+    r = opening_result("T", "Climate and Weather", hourly, OPEN, D(50), close_time=OPEN + timedelta(hours=1))
+    assert r.short_lived and not r.measurable and r.max_gap_with_depth is None and r.first_book_sec == 3
+    cats = aggregate([r])
+    assert cats["Climate and Weather"].short_lived == 1 and cats["Climate and Weather"].ge[20] == 0
+    long_lived = opening_result("T", "Sports", hourly, OPEN, D(50), close_time=OPEN + timedelta(days=2))
+    assert long_lived.measurable and long_lived.max_gap_with_depth is not None

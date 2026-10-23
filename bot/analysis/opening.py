@@ -17,6 +17,13 @@ UPPER BOUND. Consensus is hindsight: if news arrives in the first hour,
 a move toward the new price looks like a correction of a mispricing. A large
 gap here says "worth a look", not "free money". Siblings (the census) are
 the stronger test where they exist.
+
+SHORT-LIVED MARKETS ARE EXCLUDED. Markets resolving within MIN_LIFETIME of
+opening are not scored. Found on the first live run, 2026-10-23: hourly
+temperature markets open ~1 h before the hour they measure, so their 45-75
+min "consensus" is formed while real readings arrive. NYC "above 51.99F"
+went from ~70c to 5c because the temperature came in low. That is the
+outcome being learned, not a mispricing being corrected.
 """
 
 from __future__ import annotations
@@ -35,6 +42,7 @@ if TYPE_CHECKING:
 
 HUNDRED = Decimal(100)
 EARLY = timedelta(minutes=10)
+MIN_LIFETIME = timedelta(hours=6)
 CONSENSUS_FROM = timedelta(minutes=45)
 CONSENSUS_TO = timedelta(minutes=75)
 
@@ -50,10 +58,11 @@ class OpeningResult:
     max_gap_with_depth: Decimal | None
     depth_at_gap: Decimal  # contracts at the best with-depth gap
     seconds_ge: dict[int, float] = field(default_factory=dict)  # with depth, time-weighted
+    short_lived: bool = False  # resolves within MIN_LIFETIME of open: not scored
 
     @property
     def measurable(self) -> bool:
-        return self.consensus is not None and self.first_mid is not None
+        return not self.short_lived and self.consensus is not None and self.first_mid is not None
 
 
 def _gaps(b: Book, consensus: Decimal, fee: Callable[[Decimal], Decimal]) -> list[tuple[Decimal, Decimal]]:
@@ -68,11 +77,16 @@ def _gaps(b: Book, consensus: Decimal, fee: Callable[[Decimal], Decimal]) -> lis
 
 def opening_result(ticker: str, category: str, books: list[Book], open_time: datetime, min_depth: Decimal,
                    thresholds: tuple[int, ...] = (10, 20),
-                   fee: Callable[[Decimal], Decimal] = provisional_taker_fee_cents) -> OpeningResult:
+                   fee: Callable[[Decimal], Decimal] = provisional_taker_fee_cents,
+                   close_time: datetime | None = None) -> OpeningResult:
     books = sorted((b for b in books if open_time <= b.ts <= open_time + CONSENSUS_TO), key=lambda b: b.ts)
     res = OpeningResult(ticker, category, None, None, None, None, None, Decimal(0),
-                        {t: 0.0 for t in thresholds})
+                        {t: 0.0 for t in thresholds},
+                        short_lived=close_time is not None and close_time - open_time < MIN_LIFETIME)
     if not books:
+        return res
+    if res.short_lived:
+        res.first_book_sec = (books[0].ts - open_time).total_seconds()
         return res
     res.first_book_sec = (books[0].ts - open_time).total_seconds()
     late = [b for b in books if b.ts >= open_time + CONSENSUS_FROM and b.two_sided]
@@ -102,6 +116,7 @@ def opening_result(ticker: str, category: str, books: list[Book], open_time: dat
 class CategoryOpening:
     category: str
     markets: int = 0
+    short_lived: int = 0
     measurable: int = 0
     first_book_sec: list[float] = field(default_factory=list)
     first_vs_consensus: list[Decimal] = field(default_factory=list)
@@ -117,6 +132,7 @@ def aggregate(results: Iterable[OpeningResult], thresholds: tuple[int, ...] = (1
         c = out.setdefault(r.category, CategoryOpening(r.category, ge={t: 0 for t in thresholds},
                                                       ge_any_depth={t: 0 for t in thresholds}))
         c.markets += 1
+        c.short_lived += r.short_lived
         if r.first_book_sec is not None:
             c.first_book_sec.append(r.first_book_sec)
         if not r.measurable:
@@ -133,18 +149,20 @@ def aggregate(results: Iterable[OpeningResult], thresholds: tuple[int, ...] = (1
 
 
 def format_opening(cats: dict[str, CategoryOpening], min_depth: Decimal) -> str:
-    lines = [f"{'category':<24}{'mkts':>6}{'measur.':>8}{'1st book s':>11}{'|1st-cons|':>11}"
+    lines = [f"{'category':<24}{'mkts':>6}{'short':>6}{'measur.':>8}{'1st book s':>11}{'|1st-cons|':>11}"
              f"{'>=10c':>7}{'>=20c':>7}{'>=20c any':>10}{'ct@20c':>8}{'sec>=20c':>9}"]
     for c in sorted(cats.values(), key=lambda c: -(c.ge.get(20, 0) / max(1, c.measurable))):
         fb = f"{st.median(c.first_book_sec):>11.0f}" if c.first_book_sec else f"{'-':>11}"
         fc = f"{st.median(c.first_vs_consensus):>11.1f}" if c.first_vs_consensus else f"{'-':>11}"
         sec = f"{st.median(c.seconds_ge20):>9.0f}" if c.seconds_ge20 else f"{'-':>9}"
-        lines.append(f"{c.category:<24}{c.markets:>6}{c.measurable:>8}{fb}{fc}{c.ge.get(10, 0):>7}{c.ge.get(20, 0):>7}"
+        lines.append(f"{c.category:<24}{c.markets:>6}{c.short_lived:>6}{c.measurable:>8}{fb}{fc}{c.ge.get(10, 0):>7}{c.ge.get(20, 0):>7}"
                      f"{c.ge_any_depth.get(20, 0):>10}{c.contracts_ge20:>8.0f}{sec}")
     lines += [
         f"  >=Nc = markets with an executable gap of N cents or more vs their own 45-75 min consensus, within",
         f"  10 min of open, after the fee, with >= {min_depth} contracts at the price ('any' ignores depth).",
         "  sec>=20c = median seconds such a gap lasted. 1st book s = delay from open to the first recorded book.",
+        f"  short = resolve within {MIN_LIFETIME.total_seconds() / 3600:g} h of open: not scored, their consensus is the "
+        "outcome arriving.",
         "  UPPER BOUND: consensus is hindsight; news in the first hour reads as a 'mispricing'. FEES PROVISIONAL.",
     ]
     return "\n".join(lines)
@@ -168,5 +186,6 @@ def run_opening(repo: Repository, since: datetime, min_depth: Decimal) -> dict[s
                                           OrderbookSnapshotRow.ts <= m.open_time + CONSENSUS_TO)
                                    .order_by(OrderbookSnapshotRow.ts)))
         books = [Book.from_row(sn.ts, sn.yes_bids, sn.yes_asks) for sn in snaps]  # type: ignore[arg-type]
-        results.append(opening_result(m.ticker, m.category or "?", books, m.open_time, min_depth))
+        results.append(opening_result(m.ticker, m.category or "?", books, m.open_time, min_depth,
+                                      close_time=m.close_time))
     return aggregate(results)

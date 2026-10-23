@@ -160,3 +160,16 @@ async def test_run_census_on_recorded_data_skips_non_exclusive_events(tmp_path: 
 def test_fee_is_nonnegative_and_symmetric(p: str) -> None:
     x = D(p)
     assert provisional_taker_fee_cents(x) == provisional_taker_fee_cents(1 - x) >= 0
+
+
+
+def test_placeholder_quotes_carry_no_price() -> None:
+    """Regression, live 2026-10-23: 1c/99c opening placeholders read as mid 50c
+    made a ~30-bucket event 'sum' to ~1,434c."""
+    assert bk(at(0), "0.01", "0.99").mid() is None and not bk(at(0), "0.01", "0.99").informative
+    assert bk(at(0), "0.30", "0.75").mid() == D("0.525")  # wide but under the limit: still a price
+    books = {"A": [bk(at(0), "0.01", "0.99"), bk(at(30), "0.29", "0.31")],
+             "B": [bk(at(0), "0.69", "0.71")]}
+    obs = event_observations(books, OPEN, HOUR)
+    assert {o.ts for o in obs} == {at(30)}, "the placeholder moment is skipped, not scored"
+    assert open_sum_deviation(books, OPEN, HOUR) == D(0)  # first INFORMATIVE moment: 30 + 70
