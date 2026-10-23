@@ -75,7 +75,7 @@ class KalshiRestClient:
     def __init__(
         self,
         base_url: str,
-        signer: Signer,
+        signer: Signer | None,
         *,
         writes_allowed: bool,
         clock: Clock | None = None,
@@ -137,6 +137,8 @@ class KalshiRestClient:
     ) -> Any:
         method = method.upper()
         is_write = method != "GET"
+        if is_write and self._signer is None:
+            raise WriteForbidden(f"{method} {path} refused: unsigned client")
         if is_write and not self._writes_allowed:
             # The write guard. Checked before anything else so a refused
             # request never consumes budget, never gets signed, never leaves.
@@ -150,7 +152,10 @@ class KalshiRestClient:
         attempt = 0
         while True:
             await bucket.acquire(cost)
-            headers = self._signer.headers(method, self._base_path + path)
+            # signer=None sends unsigned requests: public market data only, which
+            # does not draw on the account's rate budget (used by analysis tools
+            # so they never compete with the running bot or the lab).
+            headers = self._signer.headers(method, self._base_path + path) if self._signer else {}
             try:
                 resp = await self._http.request(method, path, params=params, json=json, headers=headers)
             except httpx.TransportError as e:
@@ -286,6 +291,14 @@ class KalshiRestClient:
                                      event_ticker: str | None = None) -> m.MarketsPage:
         return await self._get("/historical/markets", m.MarketsPage, cursor=cursor, limit=limit,
                                series_ticker=series_ticker, event_ticker=event_ticker)
+
+    async def get_trades(self, cursor: str | None = None, *, ticker: str | None = None, min_ts: int | None = None,
+                         max_ts: int | None = None, limit: int = 1000) -> m.TradesPage:
+        return await self._get("/markets/trades", m.TradesPage, cursor=cursor, ticker=ticker, min_ts=min_ts,
+                               max_ts=max_ts, limit=limit)
+
+    def iter_trades(self, **filters: Any) -> AsyncIterator[m.Trade]:
+        return self._paginate(lambda c: self.get_trades(cursor=c, **filters), lambda p: p.trades)
 
     def iter_historical_markets(self, **filters: Any) -> AsyncIterator[m.Market]:
         return self._paginate(lambda c: self.get_historical_markets(cursor=c, **filters), lambda p: p.markets)

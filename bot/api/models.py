@@ -106,8 +106,10 @@ class Series(_Model):
     category: str
     categories: list[str] = Field(default_factory=list)
     tags: list[str] | None = None
-    fee_type: FeeType
-    fee_multiplier: float
+    # Optional: a category-wide sweep meets old series that may omit these, and
+    # nothing reads them yet (Phase 4's fee function will, per market).
+    fee_type: FeeType | None = None
+    fee_multiplier: float | None = None
     exchange_index: int | None = None
 
 
@@ -260,3 +262,19 @@ class HistoricalCutoff(_Model):
     market_settled_ts: datetime
     trades_created_ts: datetime
     orders_updated_ts: datetime
+
+
+class Trade(_Model):
+    """A public trade print (GET /markets/trades)."""
+
+    trade_id: str
+    ticker: str
+    yes_price_dollars: Dollars
+    count_fp: Count
+    created_time: datetime
+    taker_side: str | None = None
+
+
+class TradesPage(_Model):
+    trades: list[Trade]
+    cursor: OptionalStr = None

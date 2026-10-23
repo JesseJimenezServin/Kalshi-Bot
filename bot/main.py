@@ -7,6 +7,7 @@ Entry point and CLI.
   kalshi-bot census    how often new markets were mispriced vs siblings (plan 2.12)
   kalshi-bot backfill-history   load settled markets for the historical model (plan 3.6)
   kalshi-bot fair-report        fair estimates beside live prices (plan 3.11)
+  kalshi-bot category-study     which categories traded far from fair at open (public data)
   kalshi-bot kill      create the KILL file: stop new orders, cancel resting ones
   kalshi-bot report    performance report (Phase 5)
 
@@ -128,16 +129,25 @@ async def cmd_census(cfg: AppConfig, hours: float, window_min: float) -> int:
     from datetime import timedelta
     from decimal import Decimal
 
-    from bot.analysis.census import format_report, run_census
+    from bot.analysis.census import ALL, format_report, run_census
+    from bot.analysis.opening import format_opening, run_opening
     from bot.clock import SystemClock
 
     repo = Repository.from_url(resolve_db_url(cfg.file.storage.database_url, PROJECT_ROOT))
     since = SystemClock().utcnow() - timedelta(hours=hours)
     min_depth = Decimal(str(cfg.file.strategy.min_depth_contracts))
     async with build_rest_client(cfg) as rest:
-        rep = await run_census(repo, rest, since, timedelta(minutes=window_min), min_depth)
-    print(f"census: markets declared new in the last {hours:g}h, first {window_min:g} min after open")
-    print(format_report(rep, min_depth))
+        reports = await run_census(repo, rest, since, timedelta(minutes=window_min), min_depth)
+    print(f"=== SIBLING CENSUS: mutually exclusive events with a market declared new in the last {hours:g}h, "
+          f"first {window_min:g} min after open")
+    for cat, rep in reports.items():
+        if cat != ALL and rep.events == 0 and not rep.events_skipped_not_exclusive \
+                and not rep.events_skipped_single_market:
+            continue
+        print(f"\n--- {cat}")
+        print(format_report(rep, min_depth))
+    print(f"\n=== OPENING MOVE: every market declared new in the last {hours:g}h, vs its own later price")
+    print(format_opening(run_opening(repo, since, min_depth), min_depth))
     return 0
 
 
@@ -179,6 +189,21 @@ async def cmd_fair_report(cfg: AppConfig, events: int, series: str | None) -> in
     return 0
 
 
+async def cmd_category_study(cfg: AppConfig, categories: list[str] | None, series: int, markets: int) -> int:
+    from bot.analysis.category_study import DEFAULT_CATEGORIES, format_study, study
+    from bot.clock import SystemClock
+
+    # Unsigned: public data does not draw on the account's rate budget, so the
+    # study never competes with the running bot or the lab. Paced at ~8 req/s.
+    rest = KalshiRestClient(cfg.rest_base_url, None, writes_allowed=False)
+    rest.read_bucket.reconfigure(80.0, 80.0)
+    async with rest:
+        results = await study(rest, categories or list(DEFAULT_CATEGORIES), SystemClock().utcnow(),
+                              series_per_category=series, markets_per_category=markets)
+    print(format_study(results))
+    return 0
+
+
 def cmd_kill() -> int:
     KILL_FILE.write_text("kill switch engaged via CLI\n")
     print(f"KILL file created at {KILL_FILE}. New orders stop; resting orders are cancelled on the next cycle.")
@@ -205,6 +230,10 @@ def cli(argv: list[str] | None = None) -> int:
     p_fr = sub.add_parser("fair-report", help="fair estimates beside live prices")
     p_fr.add_argument("--events", type=int, default=5)
     p_fr.add_argument("--series", help="only series starting with this, e.g. KXHIGH")
+    p_cs = sub.add_parser("category-study", help="which categories traded far from fair at open")
+    p_cs.add_argument("--categories", nargs="*")
+    p_cs.add_argument("--series-per-category", type=int, default=60)
+    p_cs.add_argument("--markets-per-category", type=int, default=60)
     sub.add_parser("kill", help="engage the kill switch")
     sub.add_parser("report", help="print the performance report")
     args = parser.parse_args(argv)
@@ -232,6 +261,9 @@ def cli(argv: list[str] | None = None) -> int:
         return asyncio.run(cmd_backfill_history(cfg, args.series))
     if args.command == "fair-report":
         return asyncio.run(cmd_fair_report(cfg, args.events, args.series))
+    if args.command == "category-study":
+        return asyncio.run(cmd_category_study(cfg, args.categories, args.series_per_category,
+                                              args.markets_per_category))
     if args.command == "report":
         print("report: not available until Phase 5.", file=sys.stderr)
         return 1

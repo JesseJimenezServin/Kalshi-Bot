@@ -147,10 +147,13 @@ async def test_run_census_on_recorded_data_skips_non_exclusive_events(tmp_path: 
         repo.upsert_market(ticker=ticker, event_ticker=ev, series_ticker=ev.split("-")[0], status="active",
                            open_time=OPEN, close_time=OPEN + timedelta(days=1), emitted_at=OPEN)
         repo.add_snapshot(ticker, OPEN + timedelta(seconds=1), [[bid, "100"]], [[ask, "100"]])
-    rep = await run_census(repo, fake.client(clock), OPEN - HOUR, HOUR, D("50"))
+    reports = await run_census(repo, fake.client(clock), OPEN - HOUR, HOUR, D("50"))
+    rep = reports["ALL"]
     assert rep.events == 1 and rep.events_skipped_not_exclusive == 1
     assert rep.by_threshold[20].markets_any_with_depth == 3
     assert rep.max_gap_cents is not None and rep.max_gap_cents > 30
+    # Per category: the rows carry no category here, so they group under "?".
+    assert set(reports) == {"?", "ALL"} and reports["?"].events == 1
 
 
 @pytest.mark.parametrize("p", ["0.01", "0.5", "0.99"])

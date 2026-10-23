@@ -272,9 +272,13 @@ def format_report(rep: CensusReport, min_depth: Decimal) -> str:
     return "\n".join(lines)
 
 
-async def run_census(repo: "Repository", rest: "KalshiRestClient", since: datetime, window: timedelta,
-                     min_depth: Decimal) -> CensusReport:
-    """Census over every event with a market declared new since `since`."""
+ALL = "ALL"
+
+
+async def run_census(repo: Repository, rest: KalshiRestClient, since: datetime, window: timedelta,
+                     min_depth: Decimal) -> dict[str, CensusReport]:
+    """Census over every event with a market declared new since `since`,
+    one report per category plus ALL (next-steps 3)."""
     from sqlalchemy import select
 
     from bot.storage.models import MarketRow, OrderbookSnapshotRow
@@ -287,16 +291,20 @@ async def run_census(repo: "Repository", rest: "KalshiRestClient", since: dateti
             members[ev] = list(s.scalars(select(MarketRow).where(MarketRow.event_ticker == ev)))
 
     per_event: list[tuple[str, list[Observation], Decimal | None]] = []
-    skipped_ne = skipped_single = 0
+    category_of: dict[str, str] = {}
+    skipped_ne: dict[str, int] = {}
+    skipped_single: dict[str, int] = {}
     for ev in events:
         rows = members[ev]
+        cat = next((r.category for r in rows if r.category), None) or "?"
+        category_of[ev] = cat
         opens = [r.open_time for r in rows if r.open_time is not None]
         if len(rows) < 2 or not opens:
-            skipped_single += 1
+            skipped_single[cat] = skipped_single.get(cat, 0) + 1
             continue
         info = (await rest.get_event(ev)).event
         if not info.mutually_exclusive:
-            skipped_ne += 1
+            skipped_ne[cat] = skipped_ne.get(cat, 0) + 1
             continue
         open_time = min(opens)
         with repo.session() as s:
@@ -310,11 +318,18 @@ async def run_census(repo: "Repository", rest: "KalshiRestClient", since: dateti
             books[sn.ticker].append(Book.from_row(sn.ts, sn.yes_bids, sn.yes_asks))  # type: ignore[arg-type]
         books = {t: b for t, b in books.items() if b}
         if len(books) < 2:
-            skipped_single += 1
+            skipped_single[cat] = skipped_single.get(cat, 0) + 1
             continue
         per_event.append((ev, event_observations(books, open_time, window), open_sum_deviation(books, open_time, window)))
 
-    rep = summarize(per_event, min_depth)
-    rep.events_skipped_not_exclusive = skipped_ne
-    rep.events_skipped_single_market = skipped_single
-    return rep
+    reports: dict[str, CensusReport] = {}
+    cats = sorted({category_of[e] for e in events})
+    for cat in [*cats, ALL]:
+        chosen = [pe for pe in per_event if cat == ALL or category_of[pe[0]] == cat]
+        rep = summarize(chosen, min_depth)
+        rep.events_skipped_not_exclusive = sum(v for k, v in skipped_ne.items() if cat in (ALL, k))
+        rep.events_skipped_single_market = sum(v for k, v in skipped_single.items() if cat in (ALL, k))
+        reports[cat] = rep
+    if not events:
+        reports[ALL] = summarize([], min_depth)
+    return reports
