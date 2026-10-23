@@ -163,7 +163,7 @@ async def cmd_backfill_history(cfg: AppConfig, only: list[str] | None) -> int:
     return 0
 
 
-async def cmd_fair_report(cfg: AppConfig, events: int) -> int:
+async def cmd_fair_report(cfg: AppConfig, events: int, series: str | None) -> int:
     from bot.analysis.fair_report import fair_report
     from bot.clock import SystemClock
     from bot.fair_value.engine import build_engine
@@ -173,7 +173,7 @@ async def cmd_fair_report(cfg: AppConfig, events: int) -> int:
     history = load_index(repo) if "historical" in cfg.file.fair_value.models else None
     engine = build_engine(cfg.file.fair_value, history)
     async with build_rest_client(cfg) as rest:
-        print(await fair_report(repo, rest, engine, SystemClock().utcnow(), events))
+        print(await fair_report(repo, rest, engine, SystemClock().utcnow(), events, series))
     print(f"(history: {history.events if history else 0} settled events indexed; "
           f"min_confidence {cfg.file.fair_value.min_confidence})")
     return 0
@@ -204,6 +204,7 @@ def cli(argv: list[str] | None = None) -> int:
     p_bf.add_argument("--series", nargs="*", help="only these series (default: all included)")
     p_fr = sub.add_parser("fair-report", help="fair estimates beside live prices")
     p_fr.add_argument("--events", type=int, default=5)
+    p_fr.add_argument("--series", help="only series starting with this, e.g. KXHIGH")
     sub.add_parser("kill", help="engage the kill switch")
     sub.add_parser("report", help="print the performance report")
     args = parser.parse_args(argv)
@@ -230,7 +231,7 @@ def cli(argv: list[str] | None = None) -> int:
     if args.command == "backfill-history":
         return asyncio.run(cmd_backfill_history(cfg, args.series))
     if args.command == "fair-report":
-        return asyncio.run(cmd_fair_report(cfg, args.events))
+        return asyncio.run(cmd_fair_report(cfg, args.events, args.series))
     if args.command == "report":
         print("report: not available until Phase 5.", file=sys.stderr)
         return 1

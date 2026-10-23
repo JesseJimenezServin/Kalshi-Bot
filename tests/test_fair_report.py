@@ -45,6 +45,7 @@ def test_open_events_are_open_unresolved_newest_first(tmp_path: Path) -> None:
     _rows(repo)
     assert open_events(repo, NOW, limit=5) == ["A", "B"]
     assert open_events(repo, NOW, limit=1) == ["A"]
+    assert open_events(repo, NOW, limit=5, series_prefix="X") == []
 
 
 def _api_market(t: str, st: str, fl: float | None, cp: float | None, bid: str, ask: str) -> dict[str, Any]:
@@ -77,4 +78,5 @@ async def test_report_renders_estimates_beside_live_prices(tmp_path: Path) -> No
     line = next(ln for ln in text.splitlines() if ln.strip().startswith("B63.5"))
     assert "35.0" in line and line.rstrip().endswith("yes")
     assert "gaps >= 5/10/20c:" in text and "FEES PROVISIONAL" in text
+    assert "sum of mids 64.5c" in text  # 5+10+25+6.5+20+5: B63.5 is cheap, so the event sums low
     assert all(r.method == "GET" for r in fake.calls)

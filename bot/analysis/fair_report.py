@@ -49,11 +49,13 @@ def executable_gap(fair: Decimal, q: Quote) -> tuple[Decimal | None, str | None]
     return best
 
 
-def open_events(repo: Repository, now: datetime, limit: int) -> list[str]:
+def open_events(repo: Repository, now: datetime, limit: int, series_prefix: str | None = None) -> list[str]:
     with repo.session() as s:
-        rows = s.execute(select(MarketRow.event_ticker, MarketRow.open_time)
-                         .where(MarketRow.open_time <= now, MarketRow.close_time > now,
-                                MarketRow.result.is_(None))).all()
+        q = (select(MarketRow.event_ticker, MarketRow.open_time)
+             .where(MarketRow.open_time <= now, MarketRow.close_time > now, MarketRow.result.is_(None)))
+        if series_prefix:
+            q = q.where(MarketRow.series_ticker.startswith(series_prefix))
+        rows = s.execute(q).all()
     latest: dict[str, datetime] = {}
     for ev, ot in rows:
         if ot is not None and (ev not in latest or ot > latest[ev]):
@@ -103,13 +105,14 @@ def format_event(ctx: EventContext, rows: list[Row]) -> str:
                      f"{m('sibling')} | {m('historical')} | "
                      f"{_fmt(fair.cents if fair else None)} {(f'{fair.confidence:5.2f}' if fair else '    -')} | "
                      f"{_fmt(r.gap_cents)}{' ' + r.side if r.side else ''}")
-    lines.append(f"  sum of mids {total_mid:.1f}c")
+    if ctx.mutually_exclusive:  # only meaningful when exactly one market can win
+        lines.append(f"  sum of mids {total_mid:.1f}c (100 if the event is priced coherently)")
     return "\n".join(lines)
 
 
 async def fair_report(repo: Repository, rest: KalshiRestClient, engine: FairValueEngine, now: datetime,
-                      limit: int) -> str:
-    events = open_events(repo, now, limit)
+                      limit: int, series_prefix: str | None = None) -> str:
+    events = open_events(repo, now, limit, series_prefix)
     if not events:
         return "no open recorded events"
     blocks: list[str] = []
