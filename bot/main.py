@@ -4,6 +4,7 @@ Entry point and CLI.
   kalshi-bot check     validate config, then make authenticated read-only calls
   kalshi-bot run       start the bot (Phase 2: discovery + recording, no trading)
   kalshi-bot stats     what has been recorded (Phase 2 run report)
+  kalshi-bot census    how often new markets were mispriced vs siblings (plan 2.12)
   kalshi-bot kill      create the KILL file: stop new orders, cancel resting ones
   kalshi-bot report    performance report (Phase 5)
 
@@ -121,6 +122,23 @@ def cmd_stats(cfg: AppConfig, hours: float) -> int:
     return 0
 
 
+async def cmd_census(cfg: AppConfig, hours: float, window_min: float) -> int:
+    from datetime import timedelta
+    from decimal import Decimal
+
+    from bot.analysis.census import format_report, run_census
+    from bot.clock import SystemClock
+
+    repo = Repository.from_url(resolve_db_url(cfg.file.storage.database_url, PROJECT_ROOT))
+    since = SystemClock().utcnow() - timedelta(hours=hours)
+    min_depth = Decimal(str(cfg.file.strategy.min_depth_contracts))
+    async with build_rest_client(cfg) as rest:
+        rep = await run_census(repo, rest, since, timedelta(minutes=window_min), min_depth)
+    print(f"census: markets declared new in the last {hours:g}h, first {window_min:g} min after open")
+    print(format_report(rep, min_depth))
+    return 0
+
+
 def cmd_kill() -> int:
     KILL_FILE.write_text("kill switch engaged via CLI\n")
     print(f"KILL file created at {KILL_FILE}. New orders stop; resting orders are cancelled on the next cycle.")
@@ -139,6 +157,9 @@ def cli(argv: list[str] | None = None) -> int:
     sub.add_parser("run", help="start the bot")
     p_stats = sub.add_parser("stats", help="what has been recorded")
     p_stats.add_argument("--hours", type=float, default=24.0)
+    p_census = sub.add_parser("census", help="mispricing census over recorded new markets")
+    p_census.add_argument("--hours", type=float, default=48.0)
+    p_census.add_argument("--window-min", type=float, default=60.0)
     sub.add_parser("kill", help="engage the kill switch")
     sub.add_parser("report", help="print the performance report")
     args = parser.parse_args(argv)
@@ -160,6 +181,8 @@ def cli(argv: list[str] | None = None) -> int:
         return asyncio.run(run_bot(cfg))
     if args.command == "stats":
         return cmd_stats(cfg, args.hours)
+    if args.command == "census":
+        return asyncio.run(cmd_census(cfg, args.hours, args.window_min))
     if args.command == "report":
         print("report: not available until Phase 5.", file=sys.stderr)
         return 1
