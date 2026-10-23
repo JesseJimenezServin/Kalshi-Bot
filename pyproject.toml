@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kalshi-bot"
+version = "0.0.1"
+description = "Kalshi new-market mispricing bot (paper mode by default)"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx==0.28.1",
+    "websockets==17.3",
+    "cryptography==50.0.2",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.1",
+    "SQLAlchemy==2.1.6",
+    "numpy==2.5.4",
+    "structlog==26.1.0",
+    # Not in the spec's list: pydantic-settings needs it to read config.yaml.
+    "PyYAML==6.0.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+]
+
+[project.scripts]
+kalshi-bot = "bot.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["bot*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
