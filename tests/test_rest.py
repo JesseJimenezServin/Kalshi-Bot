@@ -268,3 +268,18 @@ def test_cost_path_matching() -> None:
     assert not _path_matches("/a/:id/c", "/a/42/d")
     assert not _path_matches("/a/:id", "/a/42/c")
     assert _path_matches("/a/*rest", "/a/x/y/z")
+
+
+async def test_rate_limit_share_leaves_headroom_for_other_programs_on_the_account() -> None:
+    def handler(r: httpx.Request) -> httpx.Response:
+        if r.url.path.endswith("/account/limits"):
+            return ok({"usage_tier": "basic", "grants": [], "read": {"bucket_capacity": 600, "refill_rate": 200},
+                       "write": {"bucket_capacity": 100, "refill_rate": 100}})
+        return ok({"default_cost": 10, "endpoint_costs": []})
+
+    client, _, _ = make_client(handler)
+    await client.configure_rate_limits(share=0.75)
+    assert client.read_bucket.rate == 150 and client.read_bucket.capacity == 450
+    assert client.write_bucket.rate == 75
+    with pytest.raises(ValueError):
+        await client.configure_rate_limits(share=0)

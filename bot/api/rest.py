@@ -202,16 +202,23 @@ class KalshiRestClient:
     async def get_endpoint_costs(self) -> m.EndpointCosts:
         return await self._get("/account/endpoint_costs", m.EndpointCosts)
 
-    async def configure_rate_limits(self) -> m.AccountLimits:
-        """Size the client buckets to this account's real tier and costs."""
+    async def configure_rate_limits(self, share: float = 1.0) -> m.AccountLimits:
+        """Size the client buckets to this account's real tier and costs.
+
+        Limits are per ACCOUNT (docs/API_NOTES.md section 3), so another
+        program on the same account -- the liquidity lab -- spends from the
+        same buckets. `share` keeps that fraction for this client and leaves
+        the rest as headroom."""
+        if not 0 < share <= 1:
+            raise ValueError("share must be in (0, 1]")
         limits = await self.get_account_limits()
         costs = await self.get_endpoint_costs()
-        self.read_bucket.reconfigure(limits.read.refill_rate, limits.read.bucket_capacity)
-        self.write_bucket.reconfigure(limits.write.refill_rate, limits.write.bucket_capacity)
+        self.read_bucket.reconfigure(limits.read.refill_rate * share, limits.read.bucket_capacity * share)
+        self.write_bucket.reconfigure(limits.write.refill_rate * share, limits.write.bucket_capacity * share)
         self._default_cost = costs.default_cost
         self._costs = [(c.method.upper(), c.path, c.cost) for c in costs.endpoint_costs]
-        log.info("rate_limits_configured", tier=limits.usage_tier,
-                 read_rate=limits.read.refill_rate, write_rate=limits.write.refill_rate)
+        log.info("rate_limits_configured", tier=limits.usage_tier, share=share,
+                 read_rate=self.read_bucket.rate, write_rate=self.write_bucket.rate)
         return limits
 
     # --------------------------------------------------------- market data

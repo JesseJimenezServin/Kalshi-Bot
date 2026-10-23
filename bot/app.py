@@ -44,6 +44,9 @@ from bot.storage.repo import Repository
 log = get_logger("app")
 
 HEARTBEAT_SEC = 60.0
+# Kalshi meters per account and the liquidity lab shares this account, so
+# this bot takes 75% of the budget and leaves the rest as headroom.
+RATE_LIMIT_SHARE = 0.75
 HEARTBEAT_EVENT_EVERY = 10  # heartbeats
 
 
@@ -173,7 +176,7 @@ class Bot:
         log.info("bot_starting", mode=self.cfg.mode.value, env=self.cfg.environment.value,
                  writes_allowed=self.cfg.writes_allowed)
         self.repo.add_event("start", mode=self.cfg.mode.value, env=self.cfg.environment.value)
-        await self.rest.configure_rate_limits()
+        await self.rest.configure_rate_limits(share=RATE_LIMIT_SHARE)
         await self.catalog.refresh()
         d, r = self.cfg.file.discovery, self.cfg.file.recording
         await self.scanner.sweep()  # catch anything created while we were down
