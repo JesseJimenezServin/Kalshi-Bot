@@ -234,6 +234,10 @@ Sources: [Market & Event Lifecycle](https://docs.kalshi.com/websockets/market-an
 - `GET /markets` filters: `min_created_ts`/`max_created_ts`,
   `min_close_ts`/`max_close_ts`, `min_settled_ts`/`max_settled_ts`, `status`,
   `series_ticker`, `event_ticker`, `limit` ≤ 1000, cursor pagination.
+- `status` filter values are `unopened` | `open` | `closed` | `settled` (not the
+  Market.status enum). Only one status at a time, and timestamp filters only
+  combine with certain statuses. `mve_filter=exclude` drops combo (multivariate)
+  markets.
 - Live check 2026-10-22: **more than 60,000 markets were created in 3 days
   across all categories** (combo markets dominate). Paging all of them every
   5 s is infeasible.

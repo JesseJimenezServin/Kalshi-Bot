@@ -1,0 +1,44 @@
+# All tunable values. Secrets live in .env (see .env.example), never here.
+# Every key is required: the bot validates this file at startup and refuses
+# to run if anything is missing, misspelled or out of range.
+
+mode: paper                    # paper | demo | live  (live also needs CONFIRM_LIVE_TRADING=yes)
+
+discovery:
+  scan_interval_sec: 5
+  new_market_window_min: 10
+  watch_duration_min: 60
+  # Matched against the SERIES category (markets carry none; the event-level
+  # field is deprecated). Kalshi's name for weather is "Climate and Weather"
+  # -- see docs/API_NOTES.md section 9.
+  include_categories: ["Climate and Weather"]
+  exclude_series: []
+
+fair_value:
+  min_confidence: 0.6
+  min_history: 20
+  models: [sibling, historical]
+
+strategy:
+  entry_threshold_cents: 20
+  min_depth_contracts: 50
+  take_profit_gap_cents: 5
+  stop_loss_cents: 15
+  max_hold_hours: 48
+  pre_close_exit_min: 30
+  hold_to_settlement: false
+  order_timeout_sec: 30
+  max_exit_slippage_cents: 5
+
+risk:
+  max_dollars_per_trade: 25
+  max_total_exposure_dollars: 200
+  max_positions_per_event: 1
+  max_open_positions: 10
+  daily_loss_limit_dollars: 50
+
+alerts:
+  channel: none                # telegram | discord | email | none
+
+storage:
+  database_url: sqlite:///data/kalshi_bot.sqlite

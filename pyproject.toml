@@ -35,3 +35,4 @@ include = ["bot*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+faulthandler_timeout = 30

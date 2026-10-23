@@ -29,19 +29,28 @@ unverified secondary sources, because kalshi.com blocks automated reads, and
 are listed as owner actions. 0.8 tier measured with the owner's key: Basic.
 
 ## Phase 1 — Foundation
-- [ ] 1.1 `config.yaml` + pydantic models for every section, with range validation.
-- [ ] 1.2 Secrets via pydantic-settings. Mode gating: paper default; demo explicit; live needs `mode: live` AND `CONFIRM_LIVE_TRADING=yes`, else refuse to start.
-- [ ] 1.3 Config validation tests: missing values, out-of-range, live without confirmation.
-- [ ] 1.4 structlog JSON logging.
-- [ ] 1.5 `api/auth.py`: key loading, signed headers. Test against the docs' example, or a sign-then-verify round trip.
-- [ ] 1.6 `api/rest.py` core: httpx async, base URL by mode, token-bucket rate limiting, backoff on 429/5xx.
-- [ ] 1.7 Pydantic response models: market, event, orderbook, balance, position, order, fill.
-- [ ] 1.8 Read methods with pagination; tests on a mocked HTTP transport.
-- [ ] 1.9 `place_order` / `cancel_order` accept only an `Approved` object that only the risk manager can create. Mock-tested; unused until Phase 6.
-- [ ] 1.9b **Write guard.** Paper mode reads production with a key that *can* trade, so the REST client refuses every non-GET request unless mode is `demo` (demo URL) or `live` with `CONFIRM_LIVE_TRADING=yes`. Enforced in the client itself, below the risk manager, and tested. Same idea as the liquidity lab's GET-only guard.
-- [ ] 1.10 `storage/models.py` (all 8 tables, Postgres-portable) + `storage/repo.py`; SQLite WAL; tests on a temp DB.
-- [ ] 1.11 CLI skeleton: `run`, `kill`, `report`, plus `check` (live authenticated calls).
-- [ ] 1.12 **Acceptance:** authenticated **read-only** calls to production return balance and open markets (decision A); config and write-guard tests pass. **Stop.**
+- [x] 1.1 `config.yaml` + pydantic models for every section, with range validation.
+- [x] 1.2 Secrets via pydantic-settings. Mode gating: paper default; demo explicit; live needs `mode: live` AND `CONFIRM_LIVE_TRADING=yes`, else refuse to start.
+- [x] 1.3 Config validation tests: missing values, out-of-range, live without confirmation.
+- [x] 1.4 structlog JSON logging.
+- [x] 1.5 `api/auth.py`: key loading, signed headers. Test against the docs' example, or a sign-then-verify round trip.
+- [x] 1.6 `api/rest.py` core: httpx async, base URL by mode, token-bucket rate limiting, backoff on 429/5xx.
+- [x] 1.7 Pydantic response models: market, event, orderbook, balance, position, order, fill.
+- [x] 1.8 Read methods with pagination; tests on a mocked HTTP transport.
+- [x] 1.9 `place_order` / `cancel_order` accept only an `Approved` object that only the risk manager can create. Mock-tested; unused until Phase 6.
+- [x] 1.9b **Write guard.** Paper mode reads production with a key that *can* trade, so the REST client refuses every non-GET request unless mode is `demo` (demo URL) or `live` with `CONFIRM_LIVE_TRADING=yes`. Enforced in the client itself, below the risk manager, and tested. Same idea as the liquidity lab's GET-only guard.
+- [x] 1.10 `storage/models.py` (all 8 tables, Postgres-portable) + `storage/repo.py`; SQLite WAL; tests on a temp DB.
+- [x] 1.11 CLI skeleton: `run`, `kill`, `report`, plus `check` (live authenticated calls).
+- [x] 1.12 **Acceptance:** authenticated **read-only** calls to production return balance and open markets (decision A); config and write-guard tests pass. **Stop.**
+
+**Phase 1 result (2026-10-23):** 121 tests pass. `kalshi-bot check` against
+production, read-only: auth ok (Ed25519), tier basic, balance returned across
+4 shards, open markets returned, write guard refused a real DELETE locally.
+Found and fixed during testing: the token bucket could spin forever, because
+at unix-time magnitude a sub-microsecond wait doesn't move a float clock
+(regression test added). Additions beyond the spec: a `storage` config
+section; `bot/clock.py` (one injectable clock, needed for exact replay);
+`mve_filter=exclude` on market listing (drops combo markets).
 
 ## Phase 2 — Discovery and recording
 - [ ] 2.1 `data/orderbook.py`: snapshot + deltas, Yes/No asks derived from bids, `best_yes_bid`, `best_yes_ask`, `depth_at_or_better`. Includes the liquidity lab's float-residue (phantom level) fix and its test.
