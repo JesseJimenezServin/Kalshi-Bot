@@ -86,14 +86,29 @@ class SeriesCatalog:
         self._events[event_ticker] = info
         return info
 
+    def remember(self, info: EventInfo) -> None:
+        """Cache an event announced on the lifecycle channel (event_lifecycle
+        carries series and exclusivity), so its markets need no REST lookup."""
+        self._events[info.event_ticker] = info
+
     async def confirm(self, event_ticker: str) -> EventInfo | None:
         """EventInfo if the event belongs to an included series, else None."""
-        if not self.maybe_included(event_ticker):
-            return None
-        info = await self.event_info(event_ticker)
-        if info is None or info.series_ticker not in self.included:
-            return None
+        info, _ = await self.confirm_or_retry(event_ticker)
         return info
+
+    async def confirm_or_retry(self, event_ticker: str) -> tuple[EventInfo | None, bool]:
+        """(info, retry). retry=True means "maybe ours, couldn't tell yet":
+        right after creation GET /events/{t} returns 404 for a while (found
+        live 2026-10-23: 31 of 40 markets dropped, then caught 8.7 min late
+        by the sweep)."""
+        if not self.maybe_included(event_ticker):
+            return None, False
+        info = await self.event_info(event_ticker)
+        if info is None:
+            return None, True
+        if info.series_ticker not in self.included:
+            return None, False
+        return info, False
 
     def category_of(self, series_ticker: str) -> str | None:
         s = self.series.get(series_ticker)

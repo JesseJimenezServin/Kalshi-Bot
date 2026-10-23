@@ -248,3 +248,48 @@ async def test_restart_resumes_watches_with_original_expiry(env: Env) -> None:
     assert await wl.expire() == ["KXHIGHPHIL-26OCT23-B63.5"], "expires 60 min after the ORIGINAL emission"
     late = Watchlist(env.clock, 60, on_watch=on_w, on_unwatch=on_u)
     assert await late.add(nm, added_at=at_) is False, "a watch that would already have ended is not resumed"
+
+
+async def test_event_404_right_after_creation_is_retried_not_dropped(env: Env) -> None:
+    """Regression, found live 2026-10-23: GET /events/{t} 404s for a while
+    after creation; the market was dropped and caught 8.7 min late."""
+    ev = "KXHIGHPHIL-26OCT25"
+    await env.scanner.on_lifecycle("market_lifecycle_v2", env.created("KXHIGHPHIL-26OCT25-B63.5", ev))
+    assert not env.repo.has_market("KXHIGHPHIL-26OCT25-B63.5"), "event not visible over REST yet"
+    env.fake.events[ev] = {"event_ticker": ev, "series_ticker": "KXHIGHPHIL", "mutually_exclusive": True}
+    env.clock.advance(31)
+    await env.scanner.tick()
+    assert env.repo.has_market("KXHIGHPHIL-26OCT25-B63.5") and env.scanner.stats.retried_ok == 1
+    env.at(OPEN + timedelta(seconds=2))
+    assert [n.ticker for n in await env.scanner.tick()] == ["KXHIGHPHIL-26OCT25-B63.5"]
+
+
+async def test_event_lifecycle_message_avoids_the_rest_lookup(env: Env) -> None:
+    await env.scanner.on_lifecycle("event_lifecycle", {"event_ticker": "KXHIGHPHIL-26OCT26",
+                                                       "series_ticker": "KXHIGHPHIL", "collateral_return_type": "MECNET"})
+    before = len(env.fake.calls)
+    await env.scanner.on_lifecycle("market_lifecycle_v2", env.created("KXHIGHPHIL-26OCT26-B1", "KXHIGHPHIL-26OCT26"))
+    assert env.repo.has_market("KXHIGHPHIL-26OCT26-B1") and len(env.fake.calls) == before
+
+
+async def test_unconfirmed_markets_give_up_after_the_retry_window(env: Env) -> None:
+    await env.scanner.on_lifecycle("market_lifecycle_v2", env.created("KXHIGHPHIL-26OCT27-X", "KXHIGHPHIL-26OCT27"))
+    env.clock.advance(901)
+    await env.scanner.tick()
+    assert env.scanner._unconfirmed == {}
+
+
+async def test_retries_are_one_lookup_per_event_and_throttled(env: Env) -> None:
+    ev = "KXHIGHPHIL-26OCT28"
+    for i in range(6):  # six buckets of one event, all 404 at creation
+        await env.scanner.on_lifecycle("market_lifecycle_v2", env.created(f"{ev}-B{i}", ev))
+    lookups = lambda: env.fake.paths().count(f"/events/{ev}")  # noqa: E731
+    first = lookups()
+    for _ in range(5):
+        env.clock.advance(5)  # five ticks inside 30 s
+        await env.scanner.tick()
+    assert lookups() - first <= 1, "at most one retry per event per 30 s"
+    env.fake.events[ev] = {"event_ticker": ev, "series_ticker": "KXHIGHPHIL", "mutually_exclusive": True}
+    env.clock.advance(30)
+    await env.scanner.tick()
+    assert env.scanner.stats.retried_ok == 6 and env.scanner._unconfirmed == {}

@@ -38,6 +38,9 @@ from bot.storage.repo import Repository
 
 log = get_logger(__name__)
 
+UNCONFIRMED_RETRY_SEC = 900.0
+UNCONFIRMED_RETRY_EVERY_SEC = 30.0
+
 
 @dataclass(frozen=True)
 class NewMarket:
@@ -67,6 +70,7 @@ class ScannerStats:
     emitted: int = 0
     results: int = 0
     sweeps: int = 0
+    retried_ok: int = 0
 
 
 class Scanner:
@@ -81,6 +85,10 @@ class Scanner:
         self._lookback = timedelta(hours=sweep_lookback_hours)
         self._on_new = on_new
         self._pending: dict[str, NewMarket] = {}  # registered, not yet emitted
+        # `created` messages whose event couldn't be confirmed yet: retried
+        # every tick for UNCONFIRMED_RETRY_SEC.
+        self._unconfirmed: dict[str, tuple[dict[str, Any], float]] = {}
+        self._last_retry: dict[str, float] = {}  # event -> last lookup attempt
         self._last_sweep: datetime | None = None
         self.stats = ScannerStats()
 
@@ -112,8 +120,14 @@ class Scanner:
     # ---------------------------------------------------------- lifecycle
 
     async def on_lifecycle(self, kind: str, msg: dict[str, Any]) -> None:
+        if kind == "event_lifecycle":
+            ev, series = msg.get("event_ticker"), msg.get("series_ticker")
+            if ev and series:
+                self._catalog.remember(EventInfo(ev, series, msg.get("collateral_return_type") == "MECNET",
+                                                 msg.get("title")))
+            return
         if kind != "market_lifecycle_v2":
-            return  # event_lifecycle / event_fee_update: nothing to do in Phase 2
+            return
         self.stats.lifecycle_seen += 1
         ticker = msg.get("market_ticker")
         event_type = msg.get("event_type")
@@ -122,8 +136,10 @@ class Scanner:
         if event_type == "created":
             meta = msg.get("additional_metadata") or {}
             event_ticker = meta.get("event_ticker") or ticker.rsplit("-", 1)[0]
-            info = await self._catalog.confirm(event_ticker)
+            info, retry = await self._catalog.confirm_or_retry(event_ticker)
             if info is None:
+                if retry:
+                    self._unconfirmed.setdefault(ticker, (msg, self._clock.now()))
                 return
             self.stats.lifecycle_included += 1
             await self._register(ticker, info, _ts(msg.get("open_ts")), _ts(msg.get("close_ts")), "initialized",
@@ -152,8 +168,35 @@ class Scanner:
 
     # ------------------------------------------------------------ emission
 
+    async def _retry_unconfirmed(self) -> None:
+        """One lookup per EVENT, at most every UNCONFIRMED_RETRY_EVERY_SEC: the
+        ~09:36 UTC creation burst is ~290 markets in ~50 events, and retrying
+        per market every tick would blow the read budget."""
+        now = self._clock.now()
+        by_event: dict[str, list[str]] = {}
+        for ticker, (msg, _first) in self._unconfirmed.items():
+            meta = msg.get("additional_metadata") or {}
+            by_event.setdefault(meta.get("event_ticker") or ticker.rsplit("-", 1)[0], []).append(ticker)
+        for ev, tickers in by_event.items():
+            if now - self._last_retry.get(ev, 0.0) < UNCONFIRMED_RETRY_EVERY_SEC:
+                continue
+            self._last_retry[ev] = now
+            info, retry = await self._catalog.confirm_or_retry(ev)
+            for ticker in tickers:
+                msg, first = self._unconfirmed[ticker]
+                if info is not None or not retry or now - first > UNCONFIRMED_RETRY_SEC:
+                    del self._unconfirmed[ticker]
+                if info is not None:
+                    self.stats.retried_ok += 1
+                    await self.on_lifecycle("market_lifecycle_v2", msg)
+        still_waiting = {e for e, ts in by_event.items() if any(t in self._unconfirmed for t in ts)}
+        for ev in list(self._last_retry):
+            if ev not in still_waiting:
+                del self._last_retry[ev]
+
     async def tick(self) -> list[NewMarket]:
         """Emit every pending market that has just opened. Cheap; runs every scan_interval."""
+        await self._retry_unconfirmed()
         now = self._clock.utcnow()
         emitted: list[NewMarket] = []
         for ticker, nm in list(self._pending.items()):
