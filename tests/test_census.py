@@ -15,6 +15,7 @@ from bot.analysis.census import (
     open_sum_deviation,
     provisional_taker_fee_cents,
     run_census,
+    new_report,
     summarize,
 )
 from bot.clock import FakeClock
@@ -126,6 +127,20 @@ def test_summary_counts_markets_time_and_episodes() -> None:
     assert rep.observed_seconds == 3 * 600
     text = format_report(rep, D("50"))
     assert "PROVISIONAL" in text and "20c" in text
+
+
+def test_events_fold_in_one_at_a_time_like_a_batch() -> None:
+    """Regression: the 72 h census OOM-killed on the droplet because it held every
+    observation for every event; reports are now folded one event at a time."""
+    e1 = event_observations({"A": [bk(at(0), "0.29", "0.31")], "B": [bk(at(0), "0.29", "0.31")],
+                             "C": [bk(at(0), "0.05", "0.08"), bk(at(120), "0.39", "0.41")]}, OPEN, HOUR)
+    e2 = event_observations({"X": [bk(at(0), "0.49", "0.51")], "Y": [bk(at(30), "0.20", "0.22")]}, OPEN, HOUR)
+    batch = summarize([("E1", e1, D(1)), ("E2", e2, D(2))], min_depth=D("50"))
+    inc = new_report()
+    inc.add_event(e1, D(1), D("50"))
+    inc.add_event(e2, D(2), D("50"))
+    assert format_report(inc, D("50")) == format_report(batch, D("50"))
+    assert inc.events == 2 and inc.markets == 5
 
 
 def test_open_sum_deviation() -> None:

@@ -211,28 +211,27 @@ class CensusReport:
     # |sum of mids - 100| per event at its first grid point, cents
     open_sum_deviation: list[Decimal] = field(default_factory=list)
     clean_share: float = 0.0  # share of observations with all siblings two-sided
+    _clean: int = 0
+    _total: int = 0
 
-
-def summarize(per_event: Iterable[tuple[str, list[Observation], Decimal | None]], min_depth: Decimal,
-              thresholds: tuple[int, ...] = THRESHOLDS_CENTS) -> CensusReport:
-    rep = CensusReport(by_threshold={t: ThresholdStats(t) for t in thresholds})
-    clean = total = 0
-    for event_ticker, obs, open_dev in per_event:
-        rep.events += 1
+    def add_event(self, obs: list[Observation], open_dev: Decimal | None, min_depth: Decimal) -> None:
+        """Fold one event in. Incremental so a multi-day census never holds
+        every observation at once (the 72 h run OOM-killed on the 1 GB droplet)."""
+        self.events += 1
         if open_dev is not None:
-            rep.open_sum_deviation.append(open_dev)
-        tickers = {o.ticker for o in obs}
-        rep.markets += len(tickers)
+            self.open_sum_deviation.append(open_dev)
+        by_ticker: dict[str, list[Observation]] = {}
         for o in obs:
-            rep.observed_seconds += o.dt_sec
-            total += 1
-            clean += o.siblings_two_sided == 1.0
+            by_ticker.setdefault(o.ticker, []).append(o)
+            self.observed_seconds += o.dt_sec
+            self._total += 1
+            self._clean += o.siblings_two_sided == 1.0
             g = o.best_gap()
-            if g is not None and (rep.max_gap_cents is None or g > rep.max_gap_cents):
-                rep.max_gap_cents, rep.max_gap_where = g, f"{o.ticker} @ {o.ts.isoformat()}"
-        for th, st in rep.by_threshold.items():
-            for tk in tickers:
-                mo = [o for o in obs if o.ticker == tk]
+            if g is not None and (self.max_gap_cents is None or g > self.max_gap_cents):
+                self.max_gap_cents, self.max_gap_where = g, f"{o.ticker} @ {o.ts.isoformat()}"
+        self.markets += len(by_ticker)
+        for th, st in self.by_threshold.items():
+            for mo in by_ticker.values():
                 hit = [o for o in mo if (g := o.best_gap()) is not None and g >= th]
                 hit_d = [o for o in mo if (g := o.best_gap(min_depth)) is not None and g >= th]
                 st.markets_any += bool(hit)
@@ -249,7 +248,18 @@ def summarize(per_event: Iterable[tuple[str, list[Observation], Decimal | None]]
                         run = 0.0
                 if run:
                     st.episodes.append(run)
-    rep.clean_share = clean / total if total else 0.0
+        self.clean_share = self._clean / self._total if self._total else 0.0
+
+
+def new_report(thresholds: tuple[int, ...] = THRESHOLDS_CENTS) -> CensusReport:
+    return CensusReport(by_threshold={t: ThresholdStats(t) for t in thresholds})
+
+
+def summarize(per_event: Iterable[tuple[str, list[Observation], Decimal | None]], min_depth: Decimal,
+              thresholds: tuple[int, ...] = THRESHOLDS_CENTS) -> CensusReport:
+    rep = new_report(thresholds)
+    for event_ticker, obs, open_dev in per_event:
+        rep.add_event(obs, open_dev, min_depth)
     return rep
 
 
@@ -316,7 +326,7 @@ async def run_census(repo: Repository, rest: KalshiRestClient, since: datetime, 
         for ev in events:
             members[ev] = list(s.scalars(select(MarketRow).where(MarketRow.event_ticker == ev)))
 
-    per_event: list[tuple[str, list[Observation], Decimal | None]] = []
+    reports: dict[str, CensusReport] = {ALL: new_report()}
     category_of: dict[str, str] = {}
     skipped_ne: dict[str, int] = {}
     skipped_single: dict[str, int] = {}
@@ -346,16 +356,17 @@ async def run_census(repo: Repository, rest: KalshiRestClient, since: datetime, 
         if len(books) < 2:
             skipped_single[cat] = skipped_single.get(cat, 0) + 1
             continue
-        per_event.append((ev, event_observations(books, open_time, window), open_sum_deviation(books, open_time, window)))
+        obs = event_observations(books, open_time, window)
+        dev = open_sum_deviation(books, open_time, window)
+        del snaps, books
+        for rep in (reports.setdefault(cat, new_report()), reports[ALL]):
+            rep.add_event(obs, dev, min_depth)
 
-    reports: dict[str, CensusReport] = {}
     cats = sorted({category_of[e] for e in events})
+    out: dict[str, CensusReport] = {}
     for cat in [*cats, ALL]:
-        chosen = [pe for pe in per_event if cat == ALL or category_of[pe[0]] == cat]
-        rep = summarize(chosen, min_depth)
+        rep = reports.get(cat) or new_report()
         rep.events_skipped_not_exclusive = sum(v for k, v in skipped_ne.items() if cat in (ALL, k))
         rep.events_skipped_single_market = sum(v for k, v in skipped_single.items() if cat in (ALL, k))
-        reports[cat] = rep
-    if not events:
-        reports[ALL] = summarize([], min_depth)
-    return reports
+        out[cat] = rep
+    return out

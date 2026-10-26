@@ -70,9 +70,10 @@ recording:
   snapshot_heartbeat_sec: 30
   depth_levels: 10             # levels kept per side in each snapshot
   status_refresh_min: 30       # REST check of results for recorded markets
-  max_watched: 600             # markets watched at once; extras are skipped and counted
-  # Disk guard: the droplet is shared with the liquidity lab, and a full disk
-  # would kill its frozen test. Below this, book snapshots pause and alert.
+  max_watched: 1200            # markets watched at once; extras are skipped and counted. Was 600 until
+                               # 2026-10-26: the 12:00/14:00 UTC bursts overflowed it (3,122 skipped in 3 days)
+  # Disk guard: below this, book snapshots pause and alert (deploy/healthcheck.sh
+  # warns at 6 GB, before it trips). The lab sharing the droplet is dormant since 2026-10-26.
   min_free_disk_gb: 4
 
 alerts:
