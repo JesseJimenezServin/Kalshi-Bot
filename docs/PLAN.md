@@ -195,7 +195,66 @@ slower droplet exposed was fixed).
 - Not done: a kernel reboot is pending (no auto-reboot). Do it after the
   lab window ends.
 
+**Droplet and data, 2026-10-26.**
+- 72 h of widened recording: 24,104 markets declared new, ~5M book snapshots, 231k trades, 0 WS gaps.
+- Problems found: the lab's daily backups made ~6 GB temporary copies, which paused recording twice (13 + 4 min) and
+  stalled the 09:04 scan every day; the 600-market watch cap overflowed at the 12:00/14:00 UTC bursts (3,122 new
+  markets skipped); the 72 h census was OOM-killed.
+- Fixed: lab put dormant at the owner's request (units disabled, cron lines commented; DB archived with a verified
+  sha256 to B2 `final/` and the owner's Mac, then deleted from the droplet: 17 GB free). Watch cap raised to 1200
+  (735 watched right after the deploy). Census folds events in one at a time (~175 MB RSS; ran under a 350 MB
+  systemd cap). `deploy/healthcheck.sh` alerts for the bot through the lab's ntfy topic, cron every 5 min.
+- Step 4 (opening burst): median first book 4-12 s after open per category; 0 stale books. Capacity skips fixed as above.
+
+**72 h census (2026-10-26, provisional fees, >= 50 contracts at the price):**
+- Opening move vs each market's own 45-75 min consensus: **0 markets with a >= 20c gap**, in any category
+  (462 measurable; most recorded markets resolve within 6 h or had not reached 75 min).
+- Sibling census (mutually exclusive events only): 54 markets with a >= 20c gap at depth, 0.5% of
+  observed market-time. Politics 26/74 markets (but its events sum to 100 +/- 38c at open, median), Sports 26/1,413,
+  Weather 2/476. Sibling "fair" is 100 minus the other markets' MIDS, so wide or one-sided sibling books inflate it;
+  these are candidates to inspect, not confirmed opportunities.
+
 ## Phase 4 — Signals and paper trading
+
+**Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are
+kept below; this splits them into small steps and adds a gate first.
+
+*4.0 Gate (read-only, before any trading code)*
+- 4.0a Inspect the top ~20 sibling-census candidates by hand (books for every sibling at the moment of the
+  gap): were they executable, or artifacts of wide/one-sided sibling books? Reported per category.
+- 4.0b Re-run the census with the engine's confidence filter (what Phase 4 would actually act on), so the
+  count matches what the signal step would see.
+- 4.0c Owner decisions: fee schedule verified (4.1 needs it), C (thin-book exits), D confirmed, and whether
+  to also LOG (never trade) shadow signals at 5c/10c so a quiet two weeks still says something. Entry stays 20c.
+
+*4.1 Fees*: 4.1a `fee(price, count, series)` from the confirmed schedule (per-series fee_type/multiplier, rounding
+per order); 4.1b tests against the schedule's worked examples; 4.1c analysis code switches to it.
+
+*4.2 Signals*: 4.2a pure `evaluate(book, fair, cfg) -> Signal | None` (YES and NO sides); 4.2b depth walk at
+the executable price; 4.2c one signal per market; 4.2d tests at, just above, just below 20c; 4.2e shadow log (if approved).
+
+*4.3 Sizing*: contracts = floor(max_dollars_per_trade / (price + fee per contract)), capped by depth; tests.
+
+*4.4 Risk manager* (`bot/risk/manager.py`, the only issuer of `Approved`): one check per limit (per-trade $,
+total exposure, per event, open positions, daily loss, kill switch, mode); every rejection persisted; one test per limit.
+
+*4.5 Kill switch*: the `KILL` file blocks approval and cancels resting paper orders next cycle; tested.
+
+*4.6 Paper executor*: fill against the live recorded book at the limit price, walking depth; partial fills;
+remainder cancelled at `order_timeout_sec`; fees recorded in orders/fills.
+
+*4.7 Positions*: open/close/persist every change; rebuild from the DB on restart; tests.
+
+*4.8 Exits*: the five spec rules in spec order, one test each plus an ordering test. *4.9* exit execution
+per decision C.
+
+*4.10 Decision loop*: on each book update of a watched market, fair value -> signal -> risk -> executor,
+throttled per market for the 1 vCPU; book + inputs logged for every evaluation (this is what Phase 5 replays).
+
+*4.11* Daily P&L rollup. *4.12 Acceptance*: an end-to-end test with a scripted book that enters and hits each
+exit; deploy in paper mode; this starts the >= 2-week paper record Phase 7 requires. **Stop.**
+
+Original items:
 - [ ] 4.1 `fee(price, contracts)` from the confirmed formula and rounding, with tests.
 - [ ] 4.2 `signals.evaluate`: Yes/No entry, depth check, one signal per market; tests at, just above and just below the threshold.
 - [ ] 4.3 Sizing rule (interpretation: fees count toward the per-trade cap).
