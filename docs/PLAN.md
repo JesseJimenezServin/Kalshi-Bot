@@ -218,6 +218,19 @@ slower droplet exposed was fixed).
 Politics only. Last-24 h snapshot share before the change: Sports 39%, Financials 33%, Weather 20%,
 Economics 5%, Mentions 2%, Politics 0.4%. A restart no longer resumes watches from dropped categories.
 
+**4.0a result (2026-10-26, `kalshi-bot candidates --hours 80 --top 30`, report kept on the droplet at
+/root/candidates_20261026.txt):** the top 30 sibling-census gaps (>= 20c, >= 50 contracts) were
+inspected. **None converged**: no flagged market's own price moved halfway to the sibling fair within 15 min.
+- 23 NOT CONFIRMED: sibling books 25-50c wide, ask-only 5c placeholders (a 140-market event summing to 427c), or
+  sets that are not exhaustive and exclusive (1H-score events summing to 316-339c).
+- 5 "ARB" were artifacts: a MotoGP race with 2 of its riders recorded, and Oklahoma City daily-high events with
+  2 of their buckets recorded. **Census flaw:** it uses only the markets the bot RECORDED, not the whole event.
+  4.0b must require every market of the event (by count from get_event).
+- 1 real but small: KXTRUMPAPPROVE-26OCT27 at open, an exhaustive 9-bucket ladder whose asks summed to 88c.
+  Buying every bucket cleared ~6.6c per set after provisional fees, limited to 72 sets by the thinnest leg (~$4.75).
+  That is whole-event arbitrage, a different strategy from the spec's single-market 20c entry.
+- Conclusion so far: in 80 h, no evidence for the spec's single-market >= 20c opening mispricing at depth.
+
 ## Phase 4 — Signals and paper trading
 
 **Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are
