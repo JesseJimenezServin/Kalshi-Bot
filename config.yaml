@@ -13,13 +13,16 @@ discovery:
   # -- see docs/API_NOTES.md section 9.
   # Widened 2026-10-23 to measure which categories open far from fair
   # (owner's decision). Recording only; nothing trades.
-  include_categories: ["Climate and Weather", "Sports", "Politics", "Economics", "Financials", "Mentions"]
+  # Narrowed 2026-10-26 after the 72 h census: the >= 20c leads were all in Sports
+  # and Politics. Weather, Economics, Financials, Mentions were 60% of disk with
+  # none (their recorded data stays in the DB). Was all six since 2026-10-23.
+  include_categories: ["Sports", "Politics"]
   exclude_series: []
   # Per-EVENT sampling, deterministic. Sports creates ~670 non-combo markets
-  # an hour (measured 2026-10-23); 25% keeps the shared droplet's disk safe
-  # while still sampling ~1,000 Sports events a day. Unlisted categories: 1.0.
+  # an hour (measured 2026-10-23); 50% keeps total disk use near the 2026-10-26
+  # rate now the other four categories are off. Unlisted categories: 1.0.
   category_sample:
-    Sports: 0.25
+    Sports: 0.5               # was 0.25 until 2026-10-26; crc32 sampling, so the 25% set is kept
   # Fallback REST sweep of the included series, in case lifecycle messages are
   # missed (downtime, a sequence gap). The lifecycle channel is primary.
   sweep_interval_min: 30

@@ -277,8 +277,12 @@ class Scanner:
         since = self._clock.utcnow() - within
         with self._repo.session() as s:
             rows = list(s.scalars(select(MarketRow).where(MarketRow.emitted_at >= since)))
+        # Re-apply the CURRENT include list and sampling: after a config change
+        # that drops a category, its old watches must not come back on restart.
         return [(NewMarket(r.ticker, r.event_ticker, r.series_ticker, r.category, r.open_time, r.close_time),
-                 r.emitted_at) for r in rows if r.open_time is not None and r.emitted_at is not None]
+                 r.emitted_at) for r in rows
+                if r.open_time is not None and r.emitted_at is not None
+                and self._catalog.maybe_included(r.event_ticker) and self._sampled(r.event_ticker)]
 
     @property
     def pending(self) -> dict[str, NewMarket]:

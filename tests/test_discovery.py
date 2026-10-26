@@ -232,6 +232,16 @@ async def test_watchlist_add_expire_remove() -> None:
     assert unwatched == [["B"], ["A"]] and len(wl) == 0
 
 
+async def test_restart_does_not_resume_a_category_no_longer_included(env: Env) -> None:
+    """Narrowing to Sports + Politics (2026-10-26) must not bring dropped categories' watches back."""
+    await env.scanner.on_lifecycle("market_lifecycle_v2", env.created())
+    env.at(OPEN + timedelta(seconds=5))
+    await env.scanner.tick()
+    assert len(env.scanner.recently_emitted(timedelta(minutes=60))) == 1
+    env.scanner._catalog.maybe_included = lambda event_ticker: False  # type: ignore[method-assign]
+    assert env.scanner.recently_emitted(timedelta(minutes=60)) == []
+
+
 async def test_restart_resumes_watches_with_original_expiry(env: Env) -> None:
     await env.scanner.on_lifecycle("market_lifecycle_v2", env.created())
     env.at(OPEN + timedelta(seconds=5))

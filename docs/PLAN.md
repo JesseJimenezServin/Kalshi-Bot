@@ -214,6 +214,10 @@ slower droplet exposed was fixed).
   Weather 2/476. Sibling "fair" is 100 minus the other markets' MIDS, so wide or one-sided sibling books inflate it;
   these are candidates to inspect, not confirmed opportunities.
 
+**Recording narrowed 2026-10-26 ~21:40 UTC (owner's decision):** Sports (50% of events, up from 25%) and
+Politics only. Last-24 h snapshot share before the change: Sports 39%, Financials 33%, Weather 20%,
+Economics 5%, Mentions 2%, Politics 0.4%. A restart no longer resumes watches from dropped categories.
+
 ## Phase 4 — Signals and paper trading
 
 **Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are
