@@ -256,6 +256,18 @@ event starts, and in-play periods are excluded; in Phase 4+ no entry after start
   postponement window); matched the 00:20 UTC kickoff of KC@SEA 2026-10-25, where hourly candles sat at 58/59c
   until 00:00 and moved from 01:00. Verify per series; fall back to detecting the in-play volume jump.
 
+**Total-move study, steps 1-3 (2026-10-27, `kalshi-bot total-move`, report in
+docs/results/total_move_20261027.txt):** 555 settled markets (last 60 d) that opened >= 24 h before their
+event. Opening bid/ask vs the last price before the event; nothing in-play.
+- Sports game markets (1-14 d lead): opening price is where the game ends up pre-kickoff. Median |move| 2c,
+  p90 6.5-7.5c, a 10c+ hindsight edge in 1%. Start rule (expiration - 48 h) confirmed by the in-play
+  volume jump in 198/238. NOT covered: futures and props (24,476 skipped, no start time).
+- Politics and Economics: large moves (median 10-43c; 20-67% with a 20c+ hindsight edge). Mostly
+  "will X happen by <date>" and data-release markets (AAA gas, Trump actions, bills signed), whose outcome
+  reveals itself over the market's life, so movement is mainly information arriving. Whether openings
+  were MISpriced needs step 4: calibration of opening prices against outcomes.
+- Pinned-before-close cutoff applied to 168/555 (outcome effectively known before close).
+
 ## Phase 4 — Signals and paper trading
 
 **Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are
