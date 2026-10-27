@@ -52,6 +52,8 @@ class Market(_Model):
     open_time: datetime | None = None
     close_time: datetime | None = None
     expected_expiration_time: datetime | None = None
+    expiration_time: datetime | None = None
+    settlement_ts: datetime | None = None
     yes_bid_dollars: Dollars | None = None
     yes_bid_size_fp: Count | None = None
     yes_ask_dollars: Dollars | None = None
@@ -66,6 +68,7 @@ class Market(_Model):
     floor_strike: float | None = None
     cap_strike: float | None = None
     rules_primary: str | None = None
+    rules_secondary: str | None = None
     price_level_structure: str | None = None
     price_ranges: list[PriceRange] = Field(default_factory=list)
     exchange_index: int | None = None
@@ -278,3 +281,27 @@ class Trade(_Model):
 class TradesPage(_Model):
     trades: list[Trade]
     cursor: OptionalStr = None
+
+
+class CandleOHLC(_Model):
+    open_dollars: Dollars | None = None
+    high_dollars: Dollars | None = None
+    low_dollars: Dollars | None = None
+    close_dollars: Dollars | None = None
+
+
+class Candlestick(_Model):
+    """One period of GET /series/{s}/markets/{t}/candlesticks. yes_bid/yes_ask
+    are the book's best prices over the period; close = at the period's end."""
+
+    end_period_ts: int
+    yes_bid: CandleOHLC = Field(default_factory=CandleOHLC)
+    yes_ask: CandleOHLC = Field(default_factory=CandleOHLC)
+    price: CandleOHLC = Field(default_factory=CandleOHLC)
+    volume_fp: Count = Decimal(0)
+    open_interest_fp: Count | None = None
+
+
+class Candlesticks(_Model):
+    ticker: str
+    candlesticks: list[Candlestick] = Field(default_factory=list)

@@ -7,6 +7,7 @@ Entry point and CLI.
   kalshi-bot census    how often new markets were mispriced vs siblings (plan 2.12)
   kalshi-bot backfill-history   load settled markets for the historical model (plan 3.6)
   kalshi-bot fair-report        fair estimates beside live prices (plan 3.11)
+  kalshi-bot total-move   open-to-pre-event move of settled markets (public candles; nothing in-play)
   kalshi-bot movers       biggest tradeable opening moves, ranked by dollars (no threshold)
   kalshi-bot candidates   inspect the top sibling-census gaps: arbitrage? did the price converge?
   kalshi-bot category-study     which categories traded far from fair at open (public data)
@@ -206,6 +207,23 @@ async def cmd_category_study(cfg: AppConfig, categories: list[str] | None, serie
     return 0
 
 
+async def cmd_total_move(cfg: AppConfig, categories: list[str], days: int, series: int, markets: int) -> int:
+    import sys
+
+    from bot.analysis.total_move import format_study, study
+    from bot.clock import SystemClock
+
+    rest = KalshiRestClient(cfg.rest_base_url, None, writes_allowed=False)  # unsigned: no account budget
+    rest.read_bucket.reconfigure(50.0, 50.0)  # ~5 req/s: 8/s drew 429s from the public limit (2026-10-27)
+    async with rest:
+        res = await study(rest, categories, SystemClock().utcnow(), days=days, series_per_category=series,
+                          markets_per_category=markets, progress=lambda msg: print(msg, file=sys.stderr, flush=True))
+    print(f"=== TOTAL MOVE, OPEN -> PRE-EVENT: {len(res.moves)} settled markets (last {days} d), "
+          f"categories {', '.join(categories)}")
+    print(format_study(res))
+    return 0
+
+
 def cmd_movers(cfg: AppConfig, hours: float, top: int) -> int:
     from datetime import timedelta
 
@@ -270,6 +288,11 @@ def cli(argv: list[str] | None = None) -> int:
     p_fr = sub.add_parser("fair-report", help="fair estimates beside live prices")
     p_fr.add_argument("--events", type=int, default=5)
     p_fr.add_argument("--series", help="only series starting with this, e.g. KXHIGH")
+    p_tm = sub.add_parser("total-move", help="open-to-pre-event move of settled markets")
+    p_tm.add_argument("--categories", nargs="+", default=["Sports", "Politics", "Economics"])
+    p_tm.add_argument("--days", type=int, default=60)
+    p_tm.add_argument("--series-per-category", type=int, default=400)
+    p_tm.add_argument("--markets-per-category", type=int, default=700)
     p_mv = sub.add_parser("movers", help="biggest tradeable opening moves, ranked by dollars")
     p_mv.add_argument("--hours", type=float, default=80.0)
     p_mv.add_argument("--top", type=int, default=25)
@@ -308,6 +331,9 @@ def cli(argv: list[str] | None = None) -> int:
         return asyncio.run(cmd_backfill_history(cfg, args.series))
     if args.command == "fair-report":
         return asyncio.run(cmd_fair_report(cfg, args.events, args.series))
+    if args.command == "total-move":
+        return asyncio.run(cmd_total_move(cfg, args.categories, args.days, args.series_per_category,
+                                          args.markets_per_category))
     if args.command == "movers":
         return cmd_movers(cfg, args.hours, args.top)
     if args.command == "candidates":

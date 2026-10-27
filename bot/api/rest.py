@@ -271,6 +271,14 @@ class KalshiRestClient:
     async def get_series_list(self, category: str | None = None) -> list[m.Series]:
         return (await self._get("/series", m.SeriesList, category=category)).series
 
+    async def get_candlesticks(self, series_ticker: str, ticker: str, start_ts: int, end_ts: int,
+                               period_interval: int = 60) -> list[m.Candlestick]:
+        """period_interval in minutes: 1, 60 or 1440. Live tier only (markets
+        settled after GET /historical/cutoff); empty periods may be omitted."""
+        page = await self._get(f"/series/{series_ticker}/markets/{ticker}/candlesticks", m.Candlesticks,
+                               start_ts=start_ts, end_ts=end_ts, period_interval=period_interval)
+        return page.candlesticks
+
     async def get_orderbook(self, ticker: str, depth: int | None = None) -> m.OrderbookFp:
         return (await self._get(f"/markets/{ticker}/orderbook", m.OrderbookResponse, depth=depth)).orderbook_fp
 
