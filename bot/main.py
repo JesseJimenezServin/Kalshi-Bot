@@ -7,6 +7,7 @@ Entry point and CLI.
   kalshi-bot census    how often new markets were mispriced vs siblings (plan 2.12)
   kalshi-bot backfill-history   load settled markets for the historical model (plan 3.6)
   kalshi-bot fair-report        fair estimates beside live prices (plan 3.11)
+  kalshi-bot movers       biggest tradeable opening moves, ranked by dollars (no threshold)
   kalshi-bot candidates   inspect the top sibling-census gaps: arbitrage? did the price converge?
   kalshi-bot category-study     which categories traded far from fair at open (public data)
   kalshi-bot kill      create the KILL file: stop new orders, cancel resting ones
@@ -205,6 +206,22 @@ async def cmd_category_study(cfg: AppConfig, categories: list[str] | None, serie
     return 0
 
 
+def cmd_movers(cfg: AppConfig, hours: float, top: int) -> int:
+    from datetime import timedelta
+
+    from bot.analysis.movers import format_movers, run_movers
+    from bot.clock import SystemClock
+
+    repo = Repository.from_url(resolve_db_url(cfg.file.storage.database_url, PROJECT_ROOT))
+    movers = run_movers(repo, SystemClock().utcnow() - timedelta(hours=hours))
+    print(f"=== BIGGEST OPENING MOVERS: {len(movers)} markets declared new in the last {hours:g}h with a book "
+          "in their first 10 min")
+    for ref in ("+1h", "+6h", "settle"):
+        print(f"\n--- vs {ref}")
+        print(format_movers(movers, ref=ref, top=top))
+    return 0
+
+
 async def cmd_candidates(cfg: AppConfig, hours: float, window_min: float, top: int) -> int:
     from datetime import timedelta
     from decimal import Decimal
@@ -253,6 +270,9 @@ def cli(argv: list[str] | None = None) -> int:
     p_fr = sub.add_parser("fair-report", help="fair estimates beside live prices")
     p_fr.add_argument("--events", type=int, default=5)
     p_fr.add_argument("--series", help="only series starting with this, e.g. KXHIGH")
+    p_mv = sub.add_parser("movers", help="biggest tradeable opening moves, ranked by dollars")
+    p_mv.add_argument("--hours", type=float, default=80.0)
+    p_mv.add_argument("--top", type=int, default=25)
     p_cand = sub.add_parser("candidates", help="inspect the top sibling-census gaps")
     p_cand.add_argument("--hours", type=float, default=72.0)
     p_cand.add_argument("--window-min", type=float, default=60.0)
@@ -288,6 +308,8 @@ def cli(argv: list[str] | None = None) -> int:
         return asyncio.run(cmd_backfill_history(cfg, args.series))
     if args.command == "fair-report":
         return asyncio.run(cmd_fair_report(cfg, args.events, args.series))
+    if args.command == "movers":
+        return cmd_movers(cfg, args.hours, args.top)
     if args.command == "candidates":
         return asyncio.run(cmd_candidates(cfg, args.hours, args.window_min, args.top))
     if args.command == "category-study":
