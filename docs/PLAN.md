@@ -280,6 +280,27 @@ median 28.7 days before Kalshi opened them, and its gameStartTime matches our ex
   Kalshi moved to Polymarket's in 3. For NFL game lines Kalshi leads; Polymarket is not a useful fair value.
 - Polymarket key stored at ~/.polymarket/credentials.env (owner-provided; not used: public data only).
 
+**Kalshi vs Polymarket, all sports (2026-10-27, docs/results/crossvenue_*_20261027.txt).** Matching now
+learns each league's abbreviation differences from games whose other team matches exactly (e.g. NHL
+LA=lak, VGK=las; 96 in CFB) and requires both teams to match, after fuzzy matching mis-paired games.
+
+| league | Kalshi markets | hours with a >= 10c gap | after a >= 10c gap, who moved (6 h) |
+|---|---|---|---|
+| NFL | 234 | 0.03% | Polymarket to Kalshi 19, Kalshi to Polymarket 3 |
+| NHL | 490 | 0.06% | 16 / 3 |
+| NBA | 234 | 0.08% | 9 / 1 |
+| MLB | 480 | 0.20% | 31 / 0 |
+| CFB | 886 | 4.44% | 209 / 21 (Polymarket's small-school games trade thinly near 50c) |
+| EPL | 186 | 0.02% | **1 / 6: Kalshi moved to Polymarket** |
+| 2027 futures (NFL, NBA, NHL) | 93 | ~0% | agree within ~2c; NHL futures opened on Kalshi with 1-3c asks for contenders Polymarket had at 10-32c (8 h): real trades at 3-8c, but only ~130 contracts in total |
+
+- In US leagues Kalshi leads and Polymarket's deviations are Polymarket's errors, so Polymarket is not a
+  fair value for Kalshi there. The reverse (trade Polymarket against Kalshi's price) is a different project:
+  Polymarket account, funds, and its order book rather than its hourly price.
+- EPL is the exception: 6 of 8 large gaps closed by Kalshi moving to Polymarket, mostly the first weekend of
+  the season (Aug 29-30), Kalshi books 1-3c wide at 20-28c away. Small sample; other soccer leagues untested.
+- Hourly closes only; Polymarket's hourly price is a last/mid, not a book; Kalshi fees provisional.
+
 ## Phase 4 — Signals and paper trading
 
 **Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are

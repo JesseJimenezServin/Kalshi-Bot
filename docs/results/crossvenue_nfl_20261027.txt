@@ -1,11 +1,11 @@
-NFL: 218 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+NFL: 234 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
 gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
 
 Polymarket listed the game a median 28.7 days before Kalshi opened it.
-best gap per market:  p50 4.8  p90 10.3  max 19.9
-markets with any hour >= 5c: 100   >= 10c: 23   >= 20c: 0
-share of all 88635 market-hours with a gap >= 5c: 0.29%   >= 10c: 0.03%
-first Kalshi hour, gap: p50 -9.3  max 14.9
+best gap per market:  p50 4.8  p90 9.9  max 19.9
+markets with any hour >= 5c: 105   >= 10c: 23   >= 20c: 0
+share of all 92934 market-hours with a gap >= 5c: 0.30%   >= 10c: 0.03%
+first Kalshi hour, gap: p50 -9.7  max 14.9
 |Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 5.0
 who moved in the 6:00:00 after a >= 10c gap (23 markets): pm->kalshi 19, kalshi->pm 3, neither 1
 
@@ -26,5 +26,5 @@ largest gaps:
   KXNFLGAME-26SEP20MINCHI-CHI         13.1   NO    74    73  58.5          462     2      70/68   no
   KXNFLGAME-26OCT25LARLV-LAR          12.3  YES    61    60  75.0          137     3      68/68  yes
   KXNFLGAME-26OCT08TBDAL-TB           12.2  YES    26    23  39.5            8     1      18/24  yes
-skipped: unmatched 22
+skipped: unmatched 6
 Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

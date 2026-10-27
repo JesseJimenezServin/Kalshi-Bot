@@ -212,15 +212,19 @@ async def cmd_crossvenue(cfg: AppConfig, league: str, days: int) -> int:
     import sys
     from datetime import timedelta
 
-    from bot.analysis.crossvenue import format_report, run
+    from bot.analysis.crossvenue import FUTURES, format_report, run, run_future
     from bot.api.polymarket import PolymarketPublic
     from bot.clock import SystemClock
 
     rest = KalshiRestClient(cfg.rest_base_url, None, writes_allowed=False)  # unsigned: no account budget
     rest.read_bucket.reconfigure(50.0, 50.0)
-    since = SystemClock().utcnow() - timedelta(days=days)
+    now = SystemClock().utcnow()
+    say = lambda m: print(m, file=sys.stderr, flush=True)  # noqa: E731
     async with rest, PolymarketPublic() as pm:
-        rs, skipped = await run(rest, pm, league, since, progress=lambda m: print(m, file=sys.stderr, flush=True))
+        if league in FUTURES:
+            rs, skipped = await run_future(rest, pm, league, now, progress=say)
+        else:
+            rs, skipped = await run(rest, pm, league, now - timedelta(days=days), progress=say)
     print(format_report(rs, skipped, league))
     return 0
 

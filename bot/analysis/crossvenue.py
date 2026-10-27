@@ -24,11 +24,14 @@ Read-only, public data on both venues.
 from __future__ import annotations
 
 import bisect
+import json
+import re
 import statistics as st
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from bot.analysis.census import provisional_taker_fee_cents
 from bot.api.models import Candlestick, Market
@@ -44,41 +47,125 @@ PM_SETTLE = timedelta(hours=24)
 PM_MAX_AGE = timedelta(hours=3)  # an as-of Polymarket price older than this is stale
 CONVERGE_AFTER = timedelta(hours=6)
 
-# league key -> (Kalshi game series, Polymarket tag slug, Polymarket slug prefix)
-LEAGUES: dict[str, tuple[str, str, str]] = {
-    "nfl": ("KXNFLGAME", "nfl", "nfl"),
+# league -> (Kalshi game series, Polymarket tag, Polymarket slug prefix, kickoff method)
+#   rules48     scheduled start = expiration_time - 48 h (the rules' postponement clause)
+#   ticker_et   start time is in the ticker as YYMMMDDHHMM, US Eastern (MLB)
+#   exp_2h      expected_expiration_time - 2 h, loose (soccer: no start field, ~2 h matches)
+LEAGUES: dict[str, tuple[str, str, str, str]] = {
+    "nfl": ("KXNFLGAME", "nfl", "nfl", "rules48"),
+    "cfb": ("KXNCAAFGAME", "cfb", "cfb", "rules48"),
+    "nba": ("KXNBAGAME", "nba", "nba", "rules48"),
+    "nhl": ("KXNHLGAME", "nhl", "nhl", "rules48"),
+    "mlb": ("KXMLBGAME", "mlb", "mlb", "ticker_et"),
+    "epl": ("KXEPLGAME", "epl", "epl", "exp_2h"),
 }
+TOLERANCE = {"rules48": timedelta(hours=1), "ticker_et": timedelta(hours=1), "exp_2h": timedelta(hours=3)}
+_DATE = re.compile(r"^(\d{2}[A-Z]{3}\d{2})(\d{4})?")
 
 
-def split_teams(kalshi_event: str, series: str) -> str:
-    """'KXNFLGAME-26OCT25KCSEA' -> 'KCSEA' (date prefix is 7 chars: YYMMMDD)."""
-    return kalshi_event.split("-", 1)[1][7:]
+def kalshi_kickoff(market: Market, method: str) -> datetime | None:
+    if method == "rules48":
+        return market.expiration_time - timedelta(hours=48) if market.expiration_time else None
+    if method == "ticker_et":
+        mo = _DATE.match(market.event_ticker.split("-", 1)[1])
+        if not mo or not mo.group(2):
+            return None
+        local = datetime.strptime(mo.group(1) + mo.group(2), "%y%b%d%H%M").replace(tzinfo=ZoneInfo("America/New_York"))
+        return local.astimezone(UTC)
+    if method == "exp_2h":
+        return market.expected_expiration_time - timedelta(hours=2) if market.expected_expiration_time else None
+    raise ValueError(method)
 
 
-def _compatible(kalshi_abbr: str, pm_abbr: str) -> bool:
-    a, b = kalshi_abbr.upper(), pm_abbr.upper()
-    return a == b or a.startswith(b) or b.startswith(a)
+def kalshi_teams(market: Market) -> tuple[str, str]:
+    """(teams string, side): 'KXNHLGAME-26OCT26TORCGY-CGY' -> ('TORCGY', 'CGY'); a draw market's side is 'TIE'."""
+    rest = market.event_ticker.split("-", 1)[1]
+    mo = _DATE.match(rest)
+    return (rest[mo.end():] if mo else rest), market.ticker.rsplit("-", 1)[1]
 
 
-def match_side(market: Market, series: str, games: Sequence[PmMoneyline]) -> tuple[PmMoneyline, int] | None:
-    """The Polymarket game and outcome index for this Kalshi team market, or None.
-    Kickoff must agree within KICKOFF_TOLERANCE, both teams must match in order."""
-    if market.expiration_time is None:
-        return None
-    kick = market.expiration_time - timedelta(hours=48)
-    teams = split_teams(market.event_ticker, series)
-    side = market.ticker.rsplit("-", 1)[1]
-    hits = []
-    for g in games:
-        if abs(g.game_start - kick) > KICKOFF_TOLERANCE:
-            continue
-        for cut in range(1, len(teams)):
-            if _compatible(teams[:cut], g.teams[0]) and _compatible(teams[cut:], g.teams[1]):
-                idx = 0 if side == teams[:cut] else 1 if side == teams[cut:] else None
-                if idx is not None:
-                    hits.append((g, idx))
+def event_teams(markets: Sequence[Market]) -> dict[str, tuple[str, str]]:
+    """event -> (first team, second team) abbreviations, from the team markets' own tickers."""
+    sides: dict[str, set[str]] = {}
+    teams_of: dict[str, str] = {}
+    for m in markets:
+        teams, side = kalshi_teams(m)
+        teams_of[m.event_ticker] = teams
+        if side != "TIE":
+            sides.setdefault(m.event_ticker, set()).add(side)
+    out: dict[str, tuple[str, str]] = {}
+    for ev, ss in sides.items():
+        t = teams_of[ev]
+        for x in ss:
+            if t.startswith(x) and t[len(x):]:
+                out[ev] = (x, t[len(x):])
                 break
-    return hits[0] if len(hits) == 1 else None
+            if t.endswith(x) and t[:-len(x)]:
+                out[ev] = (t[:-len(x)], x)
+                break
+    return out
+
+
+def _candidates(kick: datetime, method: str, games: Sequence[PmMoneyline]) -> list[PmMoneyline]:
+    return [g for g in games if abs(g.game_start - kick) <= TOLERANCE[method]]
+
+
+def learn_abbreviations(markets: Sequence[Market], league: str, games: Sequence[PmMoneyline]) -> dict[str, str]:
+    """Kalshi abbreviation -> Polymarket abbreviation, learned from games that kick off together where the
+    OTHER team's abbreviation matches exactly (LA@VGK vs lak-las is learned from LA vs lak-tor etc.).
+    A pair needs >= 2 votes and >= 75% of that abbreviation's votes; otherwise identity."""
+    method = LEAGUES[league][3]
+    votes: dict[str, dict[str, int]] = {}
+    seen: set[str] = set()
+    teams = event_teams(markets)
+    for m in markets:
+        if m.event_ticker in seen or m.event_ticker not in teams:
+            continue
+        seen.add(m.event_ticker)
+        kick = kalshi_kickoff(m, method)
+        if kick is None:
+            continue
+        a, h = teams[m.event_ticker]
+        for g in _candidates(kick, method, games):
+            p1, p2 = g.teams
+            if a.lower() == p1:
+                votes.setdefault(h, {}).setdefault(p2, 0)
+                votes[h][p2] += 1
+            if h.lower() == p2:
+                votes.setdefault(a, {}).setdefault(p1, 0)
+                votes[a][p1] += 1
+    out: dict[str, str] = {}
+    for k, vs in votes.items():
+        top, n = max(vs.items(), key=lambda kv: kv[1])
+        if n >= 2 and n / sum(vs.values()) >= 0.75:
+            out[k] = top
+    return out
+
+
+def match_side(market: Market, league: str, games: Sequence[PmMoneyline],
+               teams: dict[str, tuple[str, str]] | None = None,
+               abbr: dict[str, str] | None = None) -> tuple[PmMoneyline, int] | None:
+    """The Polymarket game and outcome index for this Kalshi market, or None. Kickoff must agree and BOTH
+    teams must match exactly, in order, after the learned abbreviation map."""
+    method = LEAGUES[league][3]
+    kick = kalshi_kickoff(market, method)
+    pair = teams.get(market.event_ticker) if teams is not None else None
+    if pair is None:
+        t, side = kalshi_teams(market)
+        if side == "TIE":
+            return None
+        pair = (side, t[len(side):]) if t.startswith(side) else (t[:-len(side)], side) if t.endswith(side) else None
+    if kick is None or pair is None:
+        return None
+    _, side = kalshi_teams(market)
+    amap = abbr or {}
+    want = (amap.get(pair[0], pair[0].lower()), amap.get(pair[1], pair[1].lower()))
+    hits = [g for g in _candidates(kick, method, games) if g.teams == want]
+    if len(hits) != 1:
+        return None
+    g = hits[0]
+    idx = 2 if side == "TIE" else 0 if side == pair[0] else 1
+    return (g, idx) if idx < len(g.token_ids) else None
 
 
 @dataclass
@@ -118,6 +205,21 @@ class SideResult:
     result: str | None = None
 
 
+PLACEHOLDER_BAND = (Decimal("0.49"), Decimal("0.51"))
+PLACEHOLDER_RUN = 12
+
+
+def _placeholder(pm: Sequence[tuple[int, Decimal]], i: int) -> bool:
+    """Polymarket sits at ~50c before anyone trades a game (Howard @ Indiana: 50c for 211 h vs Kalshi
+    99/100). A price in 49-51c that has not left that band for the previous PLACEHOLDER_RUN points
+    is treated as no price. A genuine coin-flip that never moves is lost too; that is the cost."""
+    lo, hi = PLACEHOLDER_BAND
+    window = pm[max(0, i - PLACEHOLDER_RUN): i + 1]
+    # Early in a history (fewer than PLACEHOLDER_RUN points yet) a market that has only ever sat at
+    # ~50c is untraded too: Howard @ Indiana's history began at 50c and the filter missed it.
+    return (len(window) > PLACEHOLDER_RUN or window[0] == pm[0]) and all(lo <= p <= hi for _, p in window)
+
+
 def compare(market: Market, g: PmMoneyline, idx: int, candles: Sequence[Candlestick],
             pm: Sequence[tuple[int, Decimal]], thresholds: tuple[int, ...] = (5, 10, 20),
             fee: Callable[[Decimal], Decimal] = provisional_taker_fee_cents) -> SideResult:
@@ -135,6 +237,8 @@ def compare(market: Market, g: PmMoneyline, idx: int, candles: Sequence[Candlest
         if i < 0 or c.end_period_ts - times[i] > PM_MAX_AGE.total_seconds():
             continue
         if g.created is not None and ts < g.created + PM_SETTLE:
+            continue
+        if _placeholder(pm, i):
             continue
         fair = pm[i][1] * HUNDRED
         b, a = c.yes_bid.close_dollars, c.yes_ask.close_dollars
@@ -176,16 +280,21 @@ def compare(market: Market, g: PmMoneyline, idx: int, candles: Sequence[Candlest
 
 async def run(rest: KalshiRestClient, pm: PolymarketPublic, league: str, since: datetime,
               progress: Callable[[str], None] | None = None) -> tuple[list[SideResult], dict[str, int]]:
-    series, tag, prefix = LEAGUES[league]
+    series, tag, prefix, _ = LEAGUES[league]
     games = await pm.closed_game_moneylines(tag, prefix, since)
     skipped: dict[str, int] = {}
     markets = [m async for m in rest.iter_markets(status="settled", series_ticker=series,
                                                   min_settled_ts=int(since.timestamp()), limit=1000)]
     if progress:
         progress(f"{league}: {len(games)} Polymarket games, {len(markets)} Kalshi markets")
+    teams = event_teams(markets)
+    abbr = learn_abbreviations(markets, league, games)
+    if progress:
+        progress(f"{league}: learned {sum(k.lower() != v for k, v in abbr.items())} abbreviation differences, "
+                 f"e.g. {dict(list((k, v) for k, v in abbr.items() if k.lower() != v)[:6])}")
     out: list[SideResult] = []
     for mk in markets:
-        hit = match_side(mk, series, games)
+        hit = match_side(mk, league, games, teams, abbr)
         if hit is None or mk.open_time is None:
             skipped["unmatched"] = skipped.get("unmatched", 0) + 1
             continue
@@ -249,3 +358,58 @@ def format_report(rs: Sequence[SideResult], skipped: dict[str, int], league: str
     lines.append("Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, "
                  "not a book; FEES PROVISIONAL.")
     return "\n".join(lines)
+
+
+# ------------------------------------------------------------------ futures
+
+# name -> (Kalshi series, Kalshi event, Polymarket event slug). Season futures: each team's market,
+# every hour of its life so far. CAVEAT: these trade through the season, so some hours fall during that
+# team's games; an hour where either venue's price is > PM_MAX_AGE stale is skipped, nothing more.
+FUTURES: dict[str, tuple[str, str, str]] = {
+    "nfl-2027": ("KXSB", "KXSB-27", "pro-football-2027-champion-20260729185915366"),
+    "nba-2027": ("KXNBA", "KXNBA-27", "nba-2027-champion"),
+    "nhl-2027": ("KXNHL", "KXNHL-27", "nhl-2027-champion-20260612185656162"),
+}
+KALSHI_CANDLE_SPAN = 30 * 86400
+
+
+def match_future(kalshi_name: str, pm_titles: Sequence[str]) -> int | None:
+    """'Los Angeles R' -> 'Los Angeles Rams', 'Arizona' -> 'Arizona Cardinals': unique prefix match."""
+    k = kalshi_name.lower().strip()
+    hits = [i for i, t in enumerate(pm_titles) if t.lower().startswith(k)]
+    return hits[0] if len(hits) == 1 else None
+
+
+async def run_future(rest: KalshiRestClient, pm: PolymarketPublic, name: str, now: datetime,
+                     progress: Callable[[str], None] | None = None) -> tuple[list[SideResult], dict[str, int]]:
+    from bot.api.polymarket import _dt
+
+    series, event, slug = FUTURES[name]
+    ev = (await pm._get("https://gamma-api.polymarket.com/events", {"slug": slug}))[0]
+    pm_mkts = [m for m in ev["markets"] if m.get("groupItemTitle")]
+    titles = [m["groupItemTitle"] for m in pm_mkts]
+    kms = [m async for m in rest.iter_markets(event_ticker=event, limit=1000)]
+    if progress:
+        progress(f"{name}: {len(kms)} Kalshi teams, {len(pm_mkts)} Polymarket teams")
+    out: list[SideResult] = []
+    skipped: dict[str, int] = {}
+    for mk in kms:
+        i = match_future(mk.yes_sub_title or "", titles)
+        if i is None or mk.open_time is None:
+            skipped["unmatched"] = skipped.get("unmatched", 0) + 1
+            continue
+        pmm = pm_mkts[i]
+        tok = json.loads(pmm["clobTokenIds"])[0]
+        g = PmMoneyline(slug, ("", ""), (titles[i],), (tok,), now + PRE_BUFFER, _dt(pmm.get("createdAt")), Decimal(0))
+        a, end = int(mk.open_time.timestamp()), int(now.timestamp())
+        candles: list[Candlestick] = []
+        t = a
+        while t < end:
+            candles += await rest.get_candlesticks(series, mk.ticker, t, min(end, t + KALSHI_CANDLE_SPAN), 60)
+            t += KALSHI_CANDLE_SPAN
+        hist = await pm.price_history(tok, a - 6 * 3600, end, 60)
+        if not hist:
+            skipped["no polymarket history"] = skipped.get("no polymarket history", 0) + 1
+            continue
+        out.append(compare(mk, g, 0, candles, hist))
+    return out, skipped

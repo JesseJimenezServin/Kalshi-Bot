@@ -1,0 +1,30 @@
+NHL: 490 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median 20.4 days before Kalshi opened it.
+best gap per market:  p50 0.8  p90 6.8  max 24.0
+markets with any hour >= 5c: 77   >= 10c: 23   >= 20c: 3
+share of all 57602 market-hours with a gap >= 5c: 0.25%   >= 10c: 0.06%
+first Kalshi hour, gap: p50 -7.5  max 20.7
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 3.0
+who moved in the 6:00:00 after a >= 10c gap (20 markets): pm->kalshi 16, kalshi->pm 3, neither 1
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res
+  KXNHLGAME-26SEP21MINCHI-MIN         24.0  YES    33    32  58.5           86     2      33/32   no
+  KXNHLGAME-26SEP21MINCHI-CHI         20.9   NO    65    64  41.5           86     2      66/68  yes
+  KXNHLGAME-26SEP25WPGCOL-COL         20.7   NO    75    74  52.0            1     5      53/52  yes
+  KXNHLGAME-26SEP20WSHBOS-BOS         16.3  YES    47    46  65.0           52     2      44/46  yes
+  KXNHLGAME-26SEP20WSHBOS-WSH         15.8   NO    58    53  35.5           53     4      54/54   no
+  KXNHLGAME-26SEP26COLUTA-COL         15.3   NO    59    53  36.0           49     3      52/52   no
+  KXNHLGAME-26SEP26COLUTA-UTA         13.9   NO    66    64  48.5           65     3      64/64  yes
+  KXNHLGAME-26SEP26ANALA-ANA          13.5   NO    73    67  52.0            9     3      68/64   no
+  KXNHLGAME-26SEP22PHIBOS-BOS         13.3  YES    39    38  54.0           12     2      49/52  yes
+  KXNHLGAME-26SEP20SJANA-ANA          13.1   NO    72    71  56.5           89     1          -  yes
+  KXNHLGAME-26SEP22FLACAR-CAR         12.8  YES    49    41  63.5           22     3      48/53  yes
+  KXNHLGAME-26SEP24BOSPHI-BOS         12.1  YES    28    27  41.5           86     3      28/28   no
+  KXNHLGAME-26SEP20SJANA-SJ           12.0  YES    30    28  43.5           89     1          -   no
+  KXNHLGAME-26SEP19WPGEDM-EDM         11.6   NO    72    71  58.0           65     1      73/72  yes
+  KXNHLGAME-26SEP21NYRNJ-NYR          11.2  YES    25    24  37.5           87     1      24/24   no
+skipped: unmatched 2
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

@@ -1,0 +1,30 @@
+EPL: 186 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -1.1 days before Kalshi opened it.
+best gap per market:  p50 -0.1  p90 1.9  max 27.8
+markets with any hour >= 5c: 13   >= 10c: 8   >= 20c: 5
+share of all 49560 market-hours with a gap >= 5c: 0.06%   >= 10c: 0.02%
+first Kalshi hour, gap: p50 -2.1  max 27.8
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 5.0
+who moved in the 6:00:00 after a >= 10c gap (8 markets): kalshi->pm 6, neither 1, pm->kalshi 1
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res
+  KXEPLGAME-26AUG29LFCNFO-TIE         27.8   NO    58    55  25.5           52    10      34/34  yes
+  KXEPLGAME-26AUG30SUNFUL-FUL         25.3  YES    11    10  37.0           96     1      34/37   no
+  KXEPLGAME-26AUG30LEEBRE-BRE         23.2  YES    13    12  37.0          118     1      29/34   no
+  KXEPLGAME-26AUG29COVHUL-TIE         21.0  YES     8     5  29.5          117     2      44/26   no
+  KXEPLGAME-26AUG30MUNIPS-TIE         20.7  YES     4     3  25.0           95     1      18/18   no
+  KXEPLGAME-26AUG29LFCNFO-LFC         19.4  YES    34    30  55.0           52     4      50/50   no
+  KXEPLGAME-26AUG29COVHUL-HUL         14.8   NO    46    45  28.5          180     1      26/26  yes
+  KXEPLGAME-26AUG28CRYMCI-CRY         14.0  YES    33    26  48.5           84     1      28/31   no
+  KXEPLGAME-26AUG28CRYMCI-MCI          9.8   NO    70    59  47.5           97     4      54/50  yes
+  KXEPLGAME-26AUG29LFCNFO-NFO          9.7  YES    24    12  35.0           52     1      18/26   no
+  KXEPLGAME-26AUG28CRYMCI-TIE          7.3  YES    11    10  19.0          165     1      26/19   no
+  KXEPLGAME-26AUG31AVLARS-ARS          5.3  YES    55    37  62.0           52     1      45/54  yes
+  KXEPLGAME-26AUG29TOTNEW-NEW          5.2  YES    26     4  32.5          108     1      30/32  yes
+  KXEPLGAME-26AUG30MUNIPS-MUN          4.3   NO    81    79  73.5          105     0      80/80  yes
+  KXEPLGAME-26AUG29TOTNEW-TIE          4.1  YES    28    26  33.5          153     0      31/26   no
+skipped: unmatched 24
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

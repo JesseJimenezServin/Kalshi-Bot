@@ -1,0 +1,30 @@
+NBA: 234 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -0.1 days before Kalshi opened it.
+best gap per market:  p50 2.8  p90 8.9  max 24.1
+markets with any hour >= 5c: 66   >= 10c: 16   >= 20c: 2
+share of all 26504 market-hours with a gap >= 5c: 0.47%   >= 10c: 0.08%
+first Kalshi hour, gap: p50 -8.5  max 8.8
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 1.0  p90 5.0  max 11.0
+who moved in the 6:00:00 after a >= 10c gap (12 markets): pm->kalshi 9, both 2, kalshi->pm 1
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res
+  KXNBAGAME-26OCT12OKCATL-ATL         24.1   NO    63    59  33.2          115     5      60/61  yes
+  KXNBAGAME-26OCT12OKCATL-OKC         23.4   NO    73    65  40.0          114     6      39/34   no
+  KXNBAGAME-26OCT11CHIDEN-CHI         17.6  YES    28    27  47.0          148     1      26/26   no
+  KXNBAGAME-26OCT11CHIDEN-DEN         16.6   NO    72    71  53.0          148     1      72/74  yes
+  KXNBAGAME-26OCT05NYKPHI-PHI         12.9  YES    37    36  51.5          114     1          -  yes
+  KXNBAGAME-26OCT05NYKPHI-NYK         12.9   NO    64    63  48.5          114     1          -   no
+  KXNBAGAME-26OCT16MINCHI-CHI         12.9   NO    63    62  47.5          163     1          -  yes
+  KXNBAGAME-26OCT26ATLHOU-HOU         12.2   NO    80    76  62.5          122     1      68/71  yes
+  KXNBAGAME-26OCT26ATLHOU-ATL         12.2  YES    24    21  37.5          122     1      30/29   no
+  KXNBAGAME-26OCT16MINCHI-MIN         11.8  YES    39    38  52.5          163     1          -   no
+  KXNBAGAME-26OCT12SASUTA-UTA         11.8   NO    61    60  46.5          161     1      64/64  yes
+  KXNBAGAME-26OCT12SASUTA-SAS         11.8  YES    40    39  53.5          161     1      36/36   no
+  KXNBAGAME-26OCT13NYKTOR-TOR         11.3   NO    80    79  66.5          148     2      76/76  yes
+  KXNBAGAME-26OCT13NYKTOR-NYK         11.3  YES    21    20  33.5          148     2      24/24   no
+  KXNBAGAME-26OCT16SACSAS-SAS         11.2   NO    87    86  74.0          146     1      88/88  yes
+skipped: unmatched 4
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

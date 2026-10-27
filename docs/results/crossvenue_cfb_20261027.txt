@@ -1,0 +1,30 @@
+CFB: 886 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -2.3 days before Kalshi opened it.
+best gap per market:  p50 8.5  p90 38.3  max 51.8
+markets with any hour >= 5c: 556   >= 10c: 406   >= 20c: 248
+share of all 158565 market-hours with a gap >= 5c: 6.37%   >= 10c: 4.44%
+first Kalshi hour, gap: p50 -4.8  max 47.4
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.5  p90 1.5  max 46.5
+who moved in the 6:00:00 after a >= 10c gap (382 markets): pm->kalshi 209, neither 148, kalshi->pm 21, both 4
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res
+  KXNCAAFGAME-26OCT24ETSUVMI-VMI      51.8  YES    22     4  75.0          121     3      14/23   no
+  KXNCAAFGAME-26OCT24ETSUVMI-ETSU     50.8   NO    95    77  25.0          120     3      86/77  yes
+  KXNCAAFGAME-26SEP12HOWIND-IND       48.9   NO   100    99  50.0          211     9      98/62  yes
+  KXNCAAFGAME-26SEP12HOWIND-HOW       48.9  YES     1     0  50.0          211    34       2/38   no
+  KXNCAAFGAME-26OCT17CITTXAM-TXAM     48.4   NO   100    99  50.5          152     4          -  yes
+  KXNCAAFGAME-26OCT17CITTXAM-CIT      48.4  YES     1     0  49.5          152     5          -   no
+  KXNCAAFGAME-26SEP05UTUBYU-UTU       48.3  YES     1     0  49.4          230    11       2/39   no
+  KXNCAAFGAME-26SEP12GRAMTCU-TCU      48.0   NO    99    98  49.9          230    44      98/98  yes
+  KXNCAAFGAME-26SEP12GRAMTCU-GRAM     48.0  YES     2     1  50.1          230    49        2/2   no
+  KXNCAAFGAME-26SEP12SOUHOU-SOU       47.8  YES     2     1  50.0          229    61        2/2   no
+  KXNCAAFGAME-26SEP12SOUHOU-HOU       47.8   NO    99    98  50.0          231    51      98/50  yes
+  KXNCAAFGAME-26OCT24MURRSDST-SDST    47.8   NO    99    98  50.1          111    13      98/98  yes
+  KXNCAAFGAME-26SEP11NORFUVA-UVA      47.8   NO    99    98  50.1          231    56      98/63  yes
+  KXNCAAFGAME-26SEP11NORFUVA-NORF     47.8  YES     2     1  49.9          231    52       2/37   no
+  KXNCAAFGAME-26SEP05HAMPMD-HAMP      47.7  YES     1     0  48.8          240    12       2/46   no
+skipped: unmatched 1136
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

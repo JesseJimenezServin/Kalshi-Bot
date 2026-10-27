@@ -1,0 +1,30 @@
+NBA-2027: 30 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median 32.6 days before Kalshi opened it.
+best gap per market:  p50 2.6  p90 8.5  max 14.4
+markets with any hour >= 5c: 4   >= 10c: 1   >= 20c: 0
+share of all 56180 market-hours with a gap >= 5c: 0.12%   >= 10c: 0.00%
+first Kalshi hour, gap: p50 -93.4  max -43.6
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.8  p90 2.0  max 2.4
+who moved in the 6:00:00 after a >= 10c gap (1 markets): kalshi->pm 1
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res
+  KXNBA-27-SAS                        14.4   NO    44    38  22.0            5     9      26/22    -
+  KXNBA-27-OKC                         9.5   NO    31    30  19.0            7    53      26/20    -
+  KXNBA-27-MIA                         8.5  YES     7     6  16.0          213     5       6/11    -
+  KXNBA-27-BOS                         5.5   NO    19    17  10.5          203     2      18/13    -
+  KXNBA-27-NYK                         4.7   NO    15    14   8.5            8     0      14/10    -
+  KXNBA-27-POR                         4.0  YES     2     1   6.1          375     0        2/2    -
+  KXNBA-27-CHA                         3.7  YES     2     1   5.8           43     0        2/3    -
+  KXNBA-27-LAC                         3.5   NO    23     5   1.2            8     0        2/1    -
+  KXNBA-27-MIN                         3.3   NO     8     7   3.2          514     0        6/3    -
+  KXNBA-27-CLE                         3.2   NO     8     7   3.4          514     0        8/3    -
+  KXNBA-27-GSW                         2.9   NO     9     8   4.6          393     0        8/6    -
+  KXNBA-27-PHI                         2.9   NO    12    11   7.4          968     0      12/13    -
+  KXNBA-27-TOR                         2.7  YES     3     2   6.0          380     0        2/3    -
+  KXNBA-27-IND                         2.7   NO     6     5   2.0           22     0        4/2    -
+  KXNBA-27-WAS                         2.6  YES     1     0   3.7          570     0        2/3    -
+skipped: none
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.
