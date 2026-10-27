@@ -231,6 +231,20 @@ inspected. **None converged**: no flagged market's own price moved halfway to th
   That is whole-event arbitrage, a different strategy from the spec's single-market 20c entry.
 - Conclusion so far: in 80 h, no evidence for the spec's single-market >= 20c opening mispricing at depth.
 
+**Biggest movers, no threshold (2026-10-26, `kalshi-bot movers --hours 90`, report at
+/root/movers_20261026.txt):** 25,854 markets with a book in their first 10 min, each ranked by its best
+entry's gap x contracts vs its own later price. Hindsight by design.
+- vs +1h: the largest dollar moves are all short-lived (closing within 6 h): college-football totals, NFL
+  1H spreads, MLB spreads, hourly Treasury-rate markets. Prices there move because the game or the data
+  is happening. That is prediction, not opening mispricing.
+- Markets that open well ahead of their event barely move in the first hour: Sports p90 0c, p99 1.3c
+  (9,160 scored). The exceptions are Economics (p99 21c; AAA gas-price series KXAAAGASD/KXAAAGASW: ~$2.6k
+  on offer across ~60 markets, ~1,000+ contracts deep) and Politics (KXTRUMPAPPROVE ~$0.7k over 10).
+  NB: the 2026-10-26 narrowing stopped recording Economics.
+- vs settlement: dominated by the outcome (MLB hits+runs+RBI props bought at 14c that paid 100). Picking
+  the side after knowing the result makes every market look like a big mover, so this view is not evidence.
+- +6h is empty: markets are recorded for watch_duration_min = 60, so nothing exists at +6h.
+
 ## Phase 4 — Signals and paper trading
 
 **Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are
