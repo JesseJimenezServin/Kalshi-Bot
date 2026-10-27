@@ -245,6 +245,17 @@ entry's gap x contracts vs its own later price. Hindsight by design.
   the side after knowing the result makes every market look like a big mover, so this view is not evidence.
 - +6h is empty: markets are recorded for watch_duration_min = 60, so nothing exists at +6h.
 
+**Goal clarified by the owner (2026-10-26):** the edge sought is the TOTAL move from a market's opening price
+to where it trades just before the event (e.g. a game a month out that opened mispriced), not the first hour.
+**Owner rule: never trade during live events.** In analysis the "closing" price is the last price before the
+event starts, and in-play periods are excluded; in Phase 4+ no entry after start, and the spec's exit rules
+(48 h max hold, 15c stop, 5c take-profit) need revisiting for multi-week holds (owner's call).
+- Data: Kalshi's public candlesticks (bid/ask/price OHLC, 1 min/1 h/1 day, live and /historical tiers) give
+  each market's whole life without recording it.
+- Event start is not an API field. KXNFLGAME: scheduled start = expiration_time - 48 h (the rules' 48 h
+  postponement window); matched the 00:20 UTC kickoff of KC@SEA 2026-10-25, where hourly candles sat at 58/59c
+  until 00:00 and moved from 01:00. Verify per series; fall back to detecting the in-play volume jump.
+
 ## Phase 4 — Signals and paper trading
 
 **Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are
