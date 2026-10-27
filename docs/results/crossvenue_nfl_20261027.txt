@@ -1,0 +1,30 @@
+NFL: 218 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median 28.7 days before Kalshi opened it.
+best gap per market:  p50 4.8  p90 10.3  max 19.9
+markets with any hour >= 5c: 100   >= 10c: 23   >= 20c: 0
+share of all 88635 market-hours with a gap >= 5c: 0.29%   >= 10c: 0.03%
+first Kalshi hour, gap: p50 -9.3  max 14.9
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 5.0
+who moved in the 6:00:00 after a >= 10c gap (23 markets): pm->kalshi 19, kalshi->pm 3, neither 1
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res
+  KXNFLGAME-26SEP28PHICHI-PHI         19.9   NO    66    65  43.5          124     1      66/68   no
+  KXNFLGAME-26SEP28PHICHI-CHI         19.9  YES    35    33  56.5          124     2      34/32  yes
+  KXNFLGAME-26OCT25NYGHOU-NYG         16.6  YES    27    26  45.0            8     1      26/26  yes
+  KXNFLGAME-26OCT25NYGHOU-HOU         16.6   NO    75    73  55.0            8     1      74/74   no
+  KXNFLGAME-26OCT04GBTB-GB            16.4   NO    67    66  48.0          140     2      61/61  yes
+  KXNFLGAME-26OCT11CINMIA-MIA         15.8  YES    21    19  38.0            8     1      16/22   no
+  KXNFLGAME-26OCT11CINMIA-CIN         15.8   NO    81    79  62.0            8     1      82/78  yes
+  KXNFLGAME-26OCT04GBTB-TB            15.4  YES    35    33  52.0          140     2      40/39   no
+  KXNFLGAME-26OCT04MIAMIN-MIN         14.9  YES    66    33  82.5            1     2      68/70  yes
+  KXNFLGAME-26OCT08TBDAL-DAL          14.2   NO    77    76  60.5            8     1      82/76   no
+  KXNFLGAME-26OCT25LARLV-LV           13.3   NO    41    40  25.0          137     3      32/32   no
+  KXNFLGAME-26SEP20MINCHI-MIN         13.1  YES    27    25  41.5          462     2      31/32  yes
+  KXNFLGAME-26SEP20MINCHI-CHI         13.1   NO    74    73  58.5          462     2      70/68   no
+  KXNFLGAME-26OCT25LARLV-LAR          12.3  YES    61    60  75.0          137     3      68/68  yes
+  KXNFLGAME-26OCT08TBDAL-TB           12.2  YES    26    23  39.5            8     1      18/24  yes
+skipped: unmatched 22
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

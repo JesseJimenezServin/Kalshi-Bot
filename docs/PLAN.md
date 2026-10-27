@@ -268,6 +268,18 @@ event. Opening bid/ask vs the last price before the event; nothing in-play.
   were MISpriced needs step 4: calibration of opening prices against outcomes.
 - Pinned-before-close cutoff applied to 168/555 (outcome effectively known before close).
 
+**Kalshi vs Polymarket, NFL games (2026-10-27, `kalshi-bot crossvenue --league nfl`, report in
+docs/results/crossvenue_nfl_20261027.txt):** 218 Kalshi team markets, every pre-game hour (88,635 hours)
+against Polymarket's hourly price for the same team; nothing within 1 h of kickoff. Polymarket listed games a
+median 28.7 days before Kalshi opened them, and its gameStartTime matches our expiration - 48 h kickoff rule.
+- Polymarket's own opening is not a reference (ARI@LAC: listed at 54/46, moved to 81.5 in 3 h, to where
+  Kalshi had been); its first 24 h and prices > 3 h old are skipped.
+- Gaps after Kalshi's fee: >= 10c in 0.03% of hours (23 markets), none >= 20c. Last pre-game hour: venues
+  agree (median 0c, p90 1c).
+- **Who was right:** after those 23 >= 10c gaps, Polymarket moved to Kalshi's price within 6 h in 19 cases,
+  Kalshi moved to Polymarket's in 3. For NFL game lines Kalshi leads; Polymarket is not a useful fair value.
+- Polymarket key stored at ~/.polymarket/credentials.env (owner-provided; not used: public data only).
+
 ## Phase 4 — Signals and paper trading
 
 **Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are

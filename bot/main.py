@@ -7,6 +7,7 @@ Entry point and CLI.
   kalshi-bot census    how often new markets were mispriced vs siblings (plan 2.12)
   kalshi-bot backfill-history   load settled markets for the historical model (plan 3.6)
   kalshi-bot fair-report        fair estimates beside live prices (plan 3.11)
+  kalshi-bot crossvenue   Kalshi sports games vs Polymarket's price, every pre-game hour (public data)
   kalshi-bot total-move   open-to-pre-event move of settled markets (public candles; nothing in-play)
   kalshi-bot movers       biggest tradeable opening moves, ranked by dollars (no threshold)
   kalshi-bot candidates   inspect the top sibling-census gaps: arbitrage? did the price converge?
@@ -207,6 +208,23 @@ async def cmd_category_study(cfg: AppConfig, categories: list[str] | None, serie
     return 0
 
 
+async def cmd_crossvenue(cfg: AppConfig, league: str, days: int) -> int:
+    import sys
+    from datetime import timedelta
+
+    from bot.analysis.crossvenue import format_report, run
+    from bot.api.polymarket import PolymarketPublic
+    from bot.clock import SystemClock
+
+    rest = KalshiRestClient(cfg.rest_base_url, None, writes_allowed=False)  # unsigned: no account budget
+    rest.read_bucket.reconfigure(50.0, 50.0)
+    since = SystemClock().utcnow() - timedelta(days=days)
+    async with rest, PolymarketPublic() as pm:
+        rs, skipped = await run(rest, pm, league, since, progress=lambda m: print(m, file=sys.stderr, flush=True))
+    print(format_report(rs, skipped, league))
+    return 0
+
+
 async def cmd_total_move(cfg: AppConfig, categories: list[str], days: int, series: int, markets: int) -> int:
     import sys
 
@@ -288,6 +306,9 @@ def cli(argv: list[str] | None = None) -> int:
     p_fr = sub.add_parser("fair-report", help="fair estimates beside live prices")
     p_fr.add_argument("--events", type=int, default=5)
     p_fr.add_argument("--series", help="only series starting with this, e.g. KXHIGH")
+    p_cv = sub.add_parser("crossvenue", help="Kalshi sports games vs Polymarket's price")
+    p_cv.add_argument("--league", default="nfl")
+    p_cv.add_argument("--days", type=int, default=60)
     p_tm = sub.add_parser("total-move", help="open-to-pre-event move of settled markets")
     p_tm.add_argument("--categories", nargs="+", default=["Sports", "Politics", "Economics"])
     p_tm.add_argument("--days", type=int, default=60)
@@ -331,6 +352,8 @@ def cli(argv: list[str] | None = None) -> int:
         return asyncio.run(cmd_backfill_history(cfg, args.series))
     if args.command == "fair-report":
         return asyncio.run(cmd_fair_report(cfg, args.events, args.series))
+    if args.command == "crossvenue":
+        return asyncio.run(cmd_crossvenue(cfg, args.league, args.days))
     if args.command == "total-move":
         return asyncio.run(cmd_total_move(cfg, args.categories, args.days, args.series_per_category,
                                           args.markets_per_category))
