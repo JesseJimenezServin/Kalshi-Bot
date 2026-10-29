@@ -34,7 +34,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from bot.analysis.census import provisional_taker_fee_cents
-from bot.api.models import Candlestick, Market
+from bot.api.models import Candlestick, Market, Trade
 from bot.api.polymarket import PmMoneyline, PolymarketPublic
 from bot.api.rest import KalshiRestClient
 
@@ -58,6 +58,13 @@ LEAGUES: dict[str, tuple[str, str, str, str]] = {
     "nhl": ("KXNHLGAME", "nhl", "nhl", "rules48"),
     "mlb": ("KXMLBGAME", "mlb", "mlb", "ticker_et"),
     "epl": ("KXEPLGAME", "epl", "epl", "exp_2h"),
+    "laliga": ("KXLALIGAGAME", "la-liga", "lal", "exp_2h"),
+    "seriea": ("KXSERIEAGAME", "sea", "sea", "exp_2h"),
+    "bundesliga": ("KXBUNDESLIGAGAME", "bundesliga", "bun", "exp_2h"),
+    "ligue1": ("KXLIGUE1GAME", "ligue-1", "fl1", "exp_2h"),
+    "ucl": ("KXUCLGAME", "ucl", "ucl", "exp_2h"),
+    "uel": ("KXUELGAME", "uel", "uel", "exp_2h"),
+    "mls": ("KXMLSGAME", "mls", "mls", "exp_2h"),
 }
 TOLERANCE = {"rules48": timedelta(hours=1), "ticker_et": timedelta(hours=1), "exp_2h": timedelta(hours=3)}
 _DATE = re.compile(r"^(\d{2}[A-Z]{3}\d{2})(\d{4})?")
@@ -110,35 +117,52 @@ def _candidates(kick: datetime, method: str, games: Sequence[PmMoneyline]) -> li
     return [g for g in games if abs(g.game_start - kick) <= TOLERANCE[method]]
 
 
-def learn_abbreviations(markets: Sequence[Market], league: str, games: Sequence[PmMoneyline]) -> dict[str, str]:
+def learn_abbreviations(markets: Sequence[Market], league: str, games: Sequence[PmMoneyline],
+                        passes: int = 5) -> dict[str, str]:
     """Kalshi abbreviation -> Polymarket abbreviation, learned from games that kick off together where the
-    OTHER team's abbreviation matches exactly (LA@VGK vs lak-las is learned from LA vs lak-tor etc.).
+    OTHER team's abbreviation matches (LA@VGK vs lak-las is learned from LA vs lak-tor etc.), and from games
+    that are the only Polymarket game in their kickoff window (both teams vote). Repeated: each learned code
+    makes the next pass's matches possible (Bundesliga: almost no code agrees, BMU/bay, SCF/fre, BVB/dor).
     A pair needs >= 2 votes and >= 75% of that abbreviation's votes; otherwise identity."""
     method = LEAGUES[league][3]
-    votes: dict[str, dict[str, int]] = {}
-    seen: set[str] = set()
     teams = event_teams(markets)
+    slots: list[tuple[str, str, list[PmMoneyline]]] = []
+    seen: set[str] = set()
     for m in markets:
         if m.event_ticker in seen or m.event_ticker not in teams:
             continue
         seen.add(m.event_ticker)
         kick = kalshi_kickoff(m, method)
-        if kick is None:
-            continue
-        a, h = teams[m.event_ticker]
-        for g in _candidates(kick, method, games):
-            p1, p2 = g.teams
-            if a.lower() == p1:
-                votes.setdefault(h, {}).setdefault(p2, 0)
-                votes[h][p2] += 1
-            if h.lower() == p2:
-                votes.setdefault(a, {}).setdefault(p1, 0)
-                votes[a][p1] += 1
+        if kick is not None:
+            slots.append((*teams[m.event_ticker], _candidates(kick, method, games)))
     out: dict[str, str] = {}
-    for k, vs in votes.items():
-        top, n = max(vs.items(), key=lambda kv: kv[1])
-        if n >= 2 and n / sum(vs.values()) >= 0.75:
-            out[k] = top
+    for _ in range(passes):
+        votes: dict[str, dict[str, int]] = {}
+
+        def vote(k: str, v: str) -> None:
+            votes.setdefault(k, {}).setdefault(v, 0)
+            votes[k][v] += 1
+
+        for a, h, cands in slots:
+            ma, mh = out.get(a, a.lower()), out.get(h, h.lower())
+            if len(cands) == 1:
+                vote(a, cands[0].teams[0])
+                vote(h, cands[0].teams[1])
+                continue
+            for g in cands:
+                p1, p2 = g.teams
+                if ma == p1:
+                    vote(h, p2)
+                if mh == p2:
+                    vote(a, p1)
+        new: dict[str, str] = {}
+        for k, vs in votes.items():
+            top, n = max(vs.items(), key=lambda kv: kv[1])
+            if n >= 2 and n / sum(vs.values()) >= 0.75:
+                new[k] = top
+        if new == out:
+            break
+        out = new
     return out
 
 
@@ -203,8 +227,15 @@ class SideResult:
         p_moved = abs(p1 - k0) <= d / 2  # type: ignore[operator]
         return "both" if k_moved and p_moved else "kalshi->pm" if k_moved else "pm->kalshi" if p_moved else "neither"
     result: str | None = None
+    # Real prints (GET /markets/trades) during the pre-game life, only for markets with a >= TRADE_GAP hour:
+    # contracts that changed hands at a price >= TRADE_GAP better than Polymarket's as-of price (either side),
+    # and the edge on them. An upper bound on what one trader could have had: others competed for these.
+    trades_seen: int | None = None
+    trade_contracts: Decimal = Decimal(0)
+    trade_edge_dollars: Decimal = Decimal(0)
 
 
+TRADE_GAP = 10
 PLACEHOLDER_BAND = (Decimal("0.49"), Decimal("0.51"))
 PLACEHOLDER_RUN = 12
 
@@ -218,6 +249,39 @@ def _placeholder(pm: Sequence[tuple[int, Decimal]], i: int) -> bool:
     # Early in a history (fewer than PLACEHOLDER_RUN points yet) a market that has only ever sat at
     # ~50c is untraded too: Howard @ Indiana's history began at 50c and the filter missed it.
     return (len(window) > PLACEHOLDER_RUN or window[0] == pm[0]) and all(lo <= p <= hi for _, p in window)
+
+
+def fair_at(g: PmMoneyline, pm: Sequence[tuple[int, Decimal]], ts: int) -> Decimal | None:
+    """Polymarket's as-of price in cents at unix ts, with compare()'s filters (listing settle, staleness,
+    placeholder), or None."""
+    i = bisect.bisect_right([t for t, _ in pm], ts) - 1
+    if i < 0 or ts - pm[i][0] > PM_MAX_AGE.total_seconds():
+        return None
+    if g.created is not None and datetime.fromtimestamp(ts, UTC) < g.created + PM_SETTLE:
+        return None
+    if _placeholder(pm, i):
+        return None
+    return pm[i][1] * HUNDRED
+
+
+def score_trades(r: SideResult, g: PmMoneyline, trades: Sequence[Trade], pm: Sequence[tuple[int, Decimal]],
+                 fee: Callable[[Decimal], Decimal] = provisional_taker_fee_cents) -> None:
+    """Fill r.trades_* from the market's prints: each pre-game print at yes price p is a contract one could
+    have bought YES at p (edge fair - p - fee) or NO at 1 - p (edge p - fair - fee)."""
+    last_ok = g.game_start - PRE_BUFFER
+    r.trades_seen = 0
+    for t in trades:
+        if t.created_time > last_ok:
+            continue
+        r.trades_seen += 1
+        fair = fair_at(g, pm, int(t.created_time.timestamp()))
+        if fair is None:
+            continue
+        p = t.yes_price_dollars
+        edge = max(fair - p * HUNDRED - fee(p), p * HUNDRED - fair - fee(Decimal(1) - p))
+        if edge >= TRADE_GAP:
+            r.trade_contracts += t.count_fp
+            r.trade_edge_dollars += t.count_fp * edge / HUNDRED
 
 
 def compare(market: Market, g: PmMoneyline, idx: int, candles: Sequence[Candlestick],
@@ -305,7 +369,15 @@ async def run(rest: KalshiRestClient, pm: PolymarketPublic, league: str, since: 
         if not hist:
             skipped["no polymarket history"] = skipped.get("no polymarket history", 0) + 1
             continue
-        out.append(compare(mk, g, idx, candles, hist))
+        r = compare(mk, g, idx, candles, hist)
+        if r.hours_ge.get(TRADE_GAP, 0) > 0:
+            seen: dict[str, Trade] = {}
+            for it in (rest.iter_historical_trades, rest.iter_trades):  # the tiers overlap: dedupe by id
+                async for t in it(ticker=mk.ticker, min_ts=op, max_ts=ko):
+                    seen[t.trade_id] = t
+            trades = list(seen.values())
+            score_trades(r, g, trades, hist)
+        out.append(r)
     return out, skipped
 
 
@@ -345,15 +417,22 @@ def format_report(rs: Sequence[SideResult], skipped: dict[str, int], league: str
         cnt = Counter(r.converged_to for r in big)
         lines.append(f"who moved in the {CONVERGE_AFTER} after a >= 10c gap ({len(big)} markets): "
                      + ", ".join(f"{k} {v}" for k, v in cnt.most_common()))
+    tr = [r for r in scored if r.trades_seen is not None]
+    if tr:
+        lines.append(f"real Kalshi prints >= {TRADE_GAP}c better than Polymarket, pre-game, in the {len(tr)} markets "
+                     f"with such an hour: {sum(r.trade_contracts for r in tr):.0f} contracts, "
+                     f"${sum(r.trade_edge_dollars for r in tr):.2f} of edge in total "
+                     f"(of {sum(r.trades_seen or 0 for r in tr)} pre-game prints)")
     lines += ["", "largest gaps:",
               f"  {'kalshi ticker':<34}{'gap':>6}{'side':>5}{'ask':>6}{'bid':>6}{'pm':>6}{'h after open':>13}"
-              f"{'h>=5c':>6}{'+6h k/pm':>11}{'res':>5}"]
+              f"{'h>=5c':>6}{'+6h k/pm':>11}{'res':>5}{'ctr>=10c':>10}{'edge$':>8}"]
     for r in sorted(scored, key=lambda r: -(r.best_gap or 0))[:15]:
         lines.append(f"  {r.ticker:<34}{r.best_gap:>6.1f}{r.best_side:>5}{r.best_ask_bid[0]:>6.0f}"
                      f"{r.best_ask_bid[1]:>6.0f}{r.best_fair:>6.1f}{r.best_at_hours_after_open:>13.0f}"
                      f"{r.hours_ge[5]:>6}"
                      f"{(f'{r.kalshi_mid_later:.0f}/{r.pm_later:.0f}' if r.pm_later is not None and r.kalshi_mid_later is not None else '-'):>11}"
-                     f"{(r.result or '-'):>5}")
+                     f"{(r.result or '-'):>5}"
+                     + (f"{r.trade_contracts:>10.0f}{r.trade_edge_dollars:>8.2f}" if r.trades_seen is not None else ""))
     lines.append("skipped: " + (", ".join(f"{k} {v}" for k, v in skipped.items()) or "none"))
     lines.append("Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, "
                  "not a book; FEES PROVISIONAL.")

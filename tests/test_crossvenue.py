@@ -132,3 +132,67 @@ def test_futures_match_by_unique_name_prefix() -> None:
     titles = ["Los Angeles Chargers", "Los Angeles Rams", "Arizona Cardinals", "New York Giants", "New York Jets"]
     assert match_future("Los Angeles R", titles) == 1 and match_future("Arizona", titles) == 2
     assert match_future("New York G", titles) == 3 and match_future("Los Angeles", titles) is None
+
+
+def test_soccer_names_that_do_not_start_with_the_abbreviation() -> None:
+    q = lambda text, tok: {"sportsMarketType": "moneyline", "question": text,  # noqa: E731
+                           "clobTokenIds": f'["{tok}", "x"]', "gameStartTime": "2026-10-09 18:30:00+00",
+                           "createdAt": "2026-10-01T00:00:00Z", "volumeNum": 1}
+    ev = {"slug": "bun-dor-wer-2026-10-09", "markets": [
+        q("Will BV Borussia 09 Dortmund win on 2026-10-09?", "DOR"),
+        q("Will BV Borussia 09 Dortmund vs. SV Werder Bremen end in a draw?", "D"),
+        q("Will SV Werder Bremen win on 2026-10-09?", "WER")]}
+    g = parse_moneyline(ev, "bun")
+    assert g is not None and g.token_ids == ("DOR", "WER", "D")
+    # the abbreviations clearly say the draw question is reversed: refuse rather than guess
+    rev = {"slug": "epl-sun-lee-2026-10-25", "markets": [
+        q("Will Leeds United FC win on 2026-10-25?", "LEE"), q("Will Leeds United FC vs. Sunderland AFC end in a draw?", "D"),
+        q("Will Sunderland AFC win on 2026-10-25?", "SUN")]}
+    assert parse_moneyline(rev, "epl") is None
+
+
+def test_score_trades_counts_prints_far_from_polymarket() -> None:
+    from decimal import Decimal as D
+
+    from bot.analysis.crossvenue import SideResult, score_trades
+    from bot.api.models import Trade
+    from bot.api.polymarket import PmMoneyline
+    ko = datetime(2026, 8, 30, 17, 0, tzinfo=UTC)
+    g = PmMoneyline("lal-dep-vcf-2026-08-30", ("dep", "vcf"), ("a", "b", "d"), ("1", "2", "3"), ko,
+                    datetime(2026, 8, 1, tzinfo=UTC), D(0))
+    t0 = int(datetime(2026, 8, 21, tzinfo=UTC).timestamp())
+    pm = [(t0 + 3600 * i, D("0.42") + D("0.001") * (i % 3)) for i in range(48)]  # ~42c, moving (not a placeholder)
+    tr = lambda tid, price, n, h: Trade.model_validate({  # noqa: E731
+        "trade_id": tid, "ticker": "X", "yes_price_dollars": price, "count_fp": n,
+        "created_time": datetime.fromtimestamp(t0 + 3600 * h + 60, UTC)})
+    r = SideResult("X", g.event_slug, ko, datetime(2026, 8, 16, tzinfo=UTC), None)
+    score_trades(r, g, [tr("a", "0.04", "100", 5), tr("b", "0.40", "50", 6),  # 4c vs 42: edge ~38c; 40c: none
+                        tr("c", "0.04", "7", 100)], pm)  # Polymarket history ended 52 h earlier: stale
+    assert r.trades_seen == 3 and r.trade_contracts == 100
+    assert D("37.9") < r.trade_edge_dollars < D("38")  # (42.2 - 4 - 0.27 fee) x 100 contracts
+
+
+def test_abbreviations_bootstrap_from_lone_kickoff_slots() -> None:
+    """Bundesliga: no code agrees (BVB/dor, SVW/wer, BMU/bay), so learning starts from games alone in their
+    kickoff window and the next pass resolves a shared window."""
+    from bot.analysis.crossvenue import event_teams, learn_abbreviations
+    from bot.api.polymarket import PmMoneyline
+
+    def km(ev: str, side: str, ko: datetime) -> Market:
+        return Market.model_validate({"ticker": f"{ev}-{side}", "event_ticker": ev, "status": "finalized",
+                                      "expected_expiration_time": ko + timedelta(hours=2)})
+
+    def pm(a: str, b: str, ko: datetime) -> PmMoneyline:
+        return PmMoneyline(f"bun-{a}-{b}", (a, b), ("", "", ""), ("1", "2", "3"), ko, None, D(0))
+
+    f1, f2, sat = (datetime(2026, 10, d, 18, 30, tzinfo=UTC) for d in (9, 16, 17))
+    markets = [km("KXBUNDESLIGAGAME-26OCT09BVBSVW", s, f1) for s in ("BVB", "SVW")]
+    markets += [km("KXBUNDESLIGAGAME-26OCT16SVWBVB", s, f2) for s in ("SVW", "BVB")]
+    markets += [km("KXBUNDESLIGAGAME-26OCT17BVBBMU", s, sat) for s in ("BVB", "BMU")]
+    markets += [km("KXBUNDESLIGAGAME-26OCT17SVWRBL", s, sat) for s in ("SVW", "RBL")]
+    games = [pm("dor", "wer", f1), pm("wer", "dor", f2), pm("dor", "bay", sat), pm("wer", "lei", sat)]
+    assert event_teams(markets)["KXBUNDESLIGAGAME-26OCT17BVBBMU"] == ("BVB", "BMU")
+    abbr = learn_abbreviations(markets, "bundesliga", games)
+    assert abbr["BVB"] == "dor" and abbr["SVW"] == "wer"
+    # BMU/RBL have one vote each (from the shared Saturday window): below the 2-vote bar, left as identity
+    assert "BMU" not in abbr and "RBL" not in abbr

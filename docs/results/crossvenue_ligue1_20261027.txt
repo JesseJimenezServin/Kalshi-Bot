@@ -1,0 +1,31 @@
+LIGUE1: 165 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -1.1 days before Kalshi opened it.
+best gap per market:  p50 -0.5  p90 1.8  max 57.1
+markets with any hour >= 5c: 6   >= 10c: 4   >= 20c: 1
+share of all 41347 market-hours with a gap >= 5c: 0.05%   >= 10c: 0.04%
+first Kalshi hour, gap: p50 -2.7  max 0.3
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 2.0
+who moved in the 6:00:00 after a >= 10c gap (4 markets): neither 2, kalshi->pm 1, pm->kalshi 1
+real Kalshi prints >= 10c better than Polymarket, pre-game, in the 4 markets with such an hour: 20 contracts, $4.19 of edge in total (of 1654 pre-game prints)
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res  ctr>=10c   edge$
+  KXLIGUE1GAME-26SEP05RCLFCL-RCL      57.1  YES     6     5  63.5          192     1      47/61   no         6    1.93
+  KXLIGUE1GAME-26SEP04PSGASM-PSG      14.3   NO    80    79  63.5          147    15      80/64   no        13    1.90
+  KXLIGUE1GAME-26AUG30RENMAN-TIE      12.6  YES    27    13  41.0          184     1      20/18   no         0    0.00
+  KXLIGUE1GAME-26SEP04OLAUX-TIE       11.6  YES     6     5  18.0          193     1      29/18   no         1    0.36
+  KXLIGUE1GAME-26SEP11RENOLM-TIE       5.9  YES    37    22  44.5           61     1      26/26   no
+  KXLIGUE1GAME-26AUG30ASMOLM-TIE       5.2  YES    26    21  32.5          184     1      25/25   no
+  KXLIGUE1GAME-26SEP03TFCLIL-LIL       4.8   NO    58    47  40.5          249     0      42/40  yes
+  KXLIGUE1GAME-26SEP05RCLFCL-FCL       4.6  YES    15    11  20.5          204     0      14/14  yes
+  KXLIGUE1GAME-26SEP06OLMPAR-PAR       3.9  YES    19    14  24.0          180     0      20/20  yes
+  KXLIGUE1GAME-26SEP06ANGREN-ANG       3.6  YES    28    21  33.0          181     0      24/22   no
+  KXLIGUE1GAME-26SEP11RENOLM-OLM       2.3  YES    41    38  45.0           62     0      38/38   no
+  KXLIGUE1GAME-26AUG30ASMOLM-ASM       2.3  YES    43    37  47.0          184     0      36/37  yes
+  KXLIGUE1GAME-26SEP11RENOLM-REN       2.0   NO    37    33  29.5           62     0      40/39  yes
+  KXLIGUE1GAME-26AUG30ASMOLM-OLM       1.9  YES    37    33  40.5          184     0      37/37   no
+  KXLIGUE1GAME-26AUG30RENMAN-MAN       1.8  YES    21    12  24.0          184     0      14/14   no
+skipped: unmatched 6
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

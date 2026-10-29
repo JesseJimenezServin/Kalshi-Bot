@@ -1,0 +1,31 @@
+BUNDESLIGA: 168 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -1.1 days before Kalshi opened it.
+best gap per market:  p50 -0.3  p90 1.9  max 26.5
+markets with any hour >= 5c: 8   >= 10c: 5   >= 20c: 3
+share of all 41252 market-hours with a gap >= 5c: 0.02%   >= 10c: 0.01%
+first Kalshi hour, gap: p50 -2.6  max 1.3
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 2.0
+who moved in the 6:00:00 after a >= 10c gap (5 markets): pm->kalshi 5
+real Kalshi prints >= 10c better than Polymarket, pre-game, in the 5 markets with such an hour: 52 contracts, $10.49 of edge in total (of 981 pre-game prints)
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res  ctr>=10c   edge$
+  KXBUNDESLIGAGAME-26SEP04VFBKOE-KOE  26.5  YES    17    13  44.5           60     2      15/16   no         0    0.00
+  KXBUNDESLIGAGAME-26SEP06SGEFCA-FCA  23.1  YES    29    25  53.5           80     1      27/26  yes         0    0.00
+  KXBUNDESLIGAGAME-26SEP06SGEFCA-TIE  21.7  YES    26    21  49.0           80     1      24/22   no         0    0.00
+  KXBUNDESLIGAGAME-26SEP04VFBKOE-VFB  17.9   NO    70    64  44.5           59     1      67/66  yes        52   10.49
+  KXBUNDESLIGAGAME-26SEP05LEVUNI-TIE  16.4  YES    19    17  36.5           56     1      18/19   no         0    0.00
+  KXBUNDESLIGAGAME-26SEP04VFBKOE-TIE   9.9  YES    19    16  30.0           60     2      18/18   no
+  KXBUNDESLIGAGAME-26SEP06SGEFCA-SGE   6.8  YES    53    48  61.5           80     1      50/48   no
+  KXBUNDESLIGAGAME-26SEP05LEVUNI-UNI   6.5  YES    17    13  24.5           56     1      16/16   no
+  KXBUNDESLIGAGAME-26SEP18BMUUNI-UNI   3.6  YES     6     5  10.0           65     0        6/4   no
+  KXBUNDESLIGAGAME-26OCT25SCFBMU-SCF   3.5   NO    19    18  13.5          111     0      18/18   no
+  KXBUNDESLIGAGAME-26OCT25SCFBMU-BMU   3.0  YES    67    65  71.5          111     0      66/68  yes
+  KXBUNDESLIGAGAME-26SEP18BMUUNI-BMU   2.9   NO    89    81  77.0           64     0      86/88  yes
+  KXBUNDESLIGAGAME-26SEP11UNISCH-UNI   2.8  YES    52    46  56.5           62     0      48/50   no
+  KXBUNDESLIGAGAME-26SEP05BMGSVE-BMG   2.3   NO    61    60  56.0          200     0      58/56   no
+  KXBUNDESLIGAGAME-26SEP05SCHBMU-TIE   2.1  YES    15    13  18.0           56     0      14/15  yes
+skipped: none
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

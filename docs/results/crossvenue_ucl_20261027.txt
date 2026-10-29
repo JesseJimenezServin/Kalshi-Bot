@@ -1,0 +1,31 @@
+UCL: 162 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -1.7 days before Kalshi opened it.
+best gap per market:  p50 0.2  p90 5.8  max 16.3
+markets with any hour >= 5c: 21   >= 10c: 5   >= 20c: 0
+share of all 35978 market-hours with a gap >= 5c: 0.14%   >= 10c: 0.02%
+first Kalshi hour, gap: p50 -3.3  max 4.3
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 3.0
+who moved in the 6:00:00 after a >= 10c gap (5 markets): pm->kalshi 3, both 1, kalshi->pm 1
+real Kalshi prints >= 10c better than Polymarket, pre-game, in the 5 markets with such an hour: 2100 contracts, $304.99 of edge in total (of 60704 pre-game prints)
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res  ctr>=10c   edge$
+  KXUCLGAME-26OCT21COMMUN-COM         16.3   NO    57    53  35.0          115     7      55/50  yes       407   60.98
+  KXUCLGAME-26OCT20PSGBAR-BAR         14.8   NO    61    56  39.5           73    11      49/50   no       778  113.71
+  KXUCLGAME-26OCT21BMUARS-BMU         14.4   NO    76    65  49.0           95     2      70/72   no        36    4.48
+  KXUCLGAME-26OCT20PSGBAR-PSG         12.9  YES    20    13  34.0          126     3      18/20  yes       811  115.05
+  KXUCLGAME-26OCT20FCPPSV-PSV         10.4   NO    40    36  24.0          179     1      27/24  yes        68   10.76
+  KXUCLGAME-26OCT21SPOASK-SPO          9.8  YES    57    52  68.5          117     3      56/56   no
+  KXUCLGAME-26OCT21COMMUN-MUN          8.5  YES    32    29  42.0          155     1      40/42   no
+  KXUCLGAME-26OCT20MCIAEK-TIE          8.4  YES     9     5  18.0          153     1      10/11   no
+  KXUCLGAME-26OCT20PSGBAR-TIE          7.8  YES    23    12  32.0          138     8      20/23   no
+  KXUCLGAME-26OCT21RBBFEY-FEY          7.5   NO    51    32  23.0          147     1      30/25   no
+  KXUCLGAME-26OCT21AVLVIK-VIK          7.4  YES    10     9  18.0          189     1        8/8   no
+  KXUCLGAME-26OCT20ROMSLO-TIE          6.4  YES     9     8  16.0          213     1        8/9   no
+  KXUCLGAME-26OCT21RMARBL-RBL          6.3  YES    11     5  18.0          171     1      11/14   no
+  KXUCLGAME-26OCT21SPOASK-ASK          5.9  YES    10     6  16.5          189     1       10/9  yes
+  KXUCLGAME-26OCT21AVLVIK-TIE          5.8  YES    11     7  17.5          187     1      12/12   no
+skipped: none
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

@@ -1,0 +1,31 @@
+MLS: 432 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -0.6 days before Kalshi opened it.
+best gap per market:  p50 0.8  p90 5.5  max 26.9
+markets with any hour >= 5c: 49   >= 10c: 20   >= 20c: 4
+share of all 99953 market-hours with a gap >= 5c: 0.13%   >= 10c: 0.06%
+first Kalshi hour, gap: p50 -19.7  max 3.2
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 3.0
+who moved in the 6:00:00 after a >= 10c gap (20 markets): pm->kalshi 14, neither 5, kalshi->pm 1
+real Kalshi prints >= 10c better than Polymarket, pre-game, in the 20 markets with such an hour: 2666 contracts, $357.02 of edge in total (of 9193 pre-game prints)
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res  ctr>=10c   edge$
+  KXMLSGAME-26SEP26DALLAFC-LAFC       26.9   NO    65    64  35.5           70     2      64/64   no        43   11.46
+  KXMLSGAME-26SEP26NSHTOR-TIE         24.8  YES    22    11  48.0          105     4      18/20   no        73   18.10
+  KXMLSGAME-26SEP30NYRBSTL-TIE        22.6  YES    27    18  51.0           12     2      22/50   no         0    0.00
+  KXMLSGAME-26SEP13VANATX-VAN         21.8   NO    80    78  55.0          118     1      79/78   no        51    6.41
+  KXMLSGAME-26SEP05PHIMTL-PHI         19.9   NO    66    65  43.5           82     1      66/66  yes         0    0.00
+  KXMLSGAME-26SEP09VANLAG-VAN         19.1   NO    79    71  50.5           93     6      74/76  yes        55    8.22
+  KXMLSGAME-26OCT24HOUMIN-HOU         17.6  YES    27    17  46.0           72     8      54/45   no         0    0.02
+  KXMLSGAME-26SEP09MTLCLT-TIE         16.7  YES    25    23  43.0          171     2      24/26   no         0    0.00
+  KXMLSGAME-26SEP20MIASD-MIA          15.4   NO    67    64  47.0          181    10      67/50   no       241   37.01
+  KXMLSGAME-26SEP27CLBMIA-MIA         15.3   NO    69    60  43.0           97     1      64/48   no        10    1.08
+  KXMLSGAME-26OCT24HOUMIN-MIN         15.2  YES    13     6  29.0           72     6      14/25   no         0    0.01
+  KXMLSGAME-26SEP30NYRBSTL-NYRB       12.6   NO    29    28  14.0           32    24      28/28   no      1652  218.72
+  KXMLSGAME-26OCT24PHINE-PHI          12.3   NO    62    59  45.0          191     2      61/61   no       100   11.29
+  KXMLSGAME-26SEP26HOUSKC-TIE         12.0  YES    30    11  43.5          105     2      18/22   no         0    0.00
+  KXMLSGAME-26SEP09HOURSL-RSL         11.8  YES    21    16  34.0          188     1      18/20   no         0    0.00
+skipped: unmatched 24
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

@@ -308,6 +308,17 @@ class KalshiRestClient:
     def iter_trades(self, **filters: Any) -> AsyncIterator[m.Trade]:
         return self._paginate(lambda c: self.get_trades(cursor=c, **filters), lambda p: p.trades)
 
+    async def get_historical_trades(self, cursor: str | None = None, *, ticker: str | None = None,
+                                    min_ts: int | None = None, max_ts: int | None = None,
+                                    limit: int = 1000) -> m.TradesPage:
+        """Older prints: /markets/trades lacked a market's first days that this tier had
+        (KXLALIGAGAME-26AUG30DEPVCF-VCF: live from Aug 22, historical from Aug 21). The tiers overlap."""
+        return await self._get("/historical/trades", m.TradesPage, cursor=cursor, ticker=ticker, min_ts=min_ts,
+                               max_ts=max_ts, limit=limit)
+
+    def iter_historical_trades(self, **filters: Any) -> AsyncIterator[m.Trade]:
+        return self._paginate(lambda c: self.get_historical_trades(cursor=c, **filters), lambda p: p.trades)
+
     def iter_historical_markets(self, **filters: Any) -> AsyncIterator[m.Market]:
         return self._paginate(lambda c: self.get_historical_markets(cursor=c, **filters), lambda p: p.markets)
 

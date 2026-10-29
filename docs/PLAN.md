@@ -301,6 +301,33 @@ LA=lak, VGK=las; 96 in CFB) and requires both teams to match, after fuzzy matchi
   the season (Aug 29-30), Kalshi books 1-3c wide at 20-28c away. Small sample; other soccer leagues untested.
 - Hourly closes only; Polymarket's hourly price is a last/mid, not a book; Kalshi fees provisional.
 
+**Kalshi vs Polymarket, soccer (2026-10-28, last 60 days = from Aug 29, docs/results/crossvenue_*_20261027.txt).**
+Two matching fixes first: soccer teams are ordered by Polymarket's draw question (full names; the old
+first-letter check dropped most games, e.g. "BV Borussia 09 Dortmund" for `dor`), and abbreviation learning
+bootstraps from games alone in their kickoff window and repeats (Bundesliga: no code agrees, BMU/bay, SCF/fre;
+all 15 learned codes checked correct). New: for every market with a >= 10c hour, every real pre-game Kalshi
+print (live + historical trade tiers, deduped) is scored against Polymarket's as-of price.
+
+| League | Kalshi markets | hours >= 10c | after a >= 10c gap, who moved (6 h) | prints >= 10c off Polymarket: contracts, edge |
+|---|---|---|---|---|
+| La Liga | 177 | 0.06% | **Kalshi to Polymarket 7**, neither 3, both 1 | 2,714, $563 |
+| EPL | 195 | 0.01% | Kalshi to Polymarket 3 | 57, $9 |
+| Ligue 1 | 165 | 0.04% | 1 / 1, neither 2 | 20, $4 |
+| Champions League | 162 | 0.02% | Polymarket to Kalshi 3, Kalshi to Polymarket 1, both 1 | 2,100, $305 |
+| Serie A | 207 | 0.01% | Polymarket to Kalshi 3 | 5, $1 |
+| Bundesliga | 168 | 0.01% | Polymarket to Kalshi 5 | 52, $10 |
+| MLS | 432 | 0.06% | Polymarket to Kalshi 14, Kalshi to Polymarket 1 | 2,666, $357 |
+| Europa League | 144 | 0% | none | - |
+
+- The "edge" column is measured against Polymarket's price, so it is only real where Polymarket was the
+  better price. That is La Liga (and EPL's 3); in UCL and MLS Polymarket moved to Kalshi, so those dollars
+  are Polymarket's error, not Kalshi's. It is also an upper bound: every print at that price, both sides,
+  with no competition for them.
+- La Liga's cases are the season's opening weeks (Aug 30 - Sep 20), mostly draw markets. ~$560 over 60 days
+  at best, from one league's opening weeks: too small and too rare to build on alone.
+- The window moved a day: EPL's Aug 29 games (part of the earlier 6-of-8) fell out of it.
+- Hourly closes; Polymarket hourly price is a last/mid, not a book; fees provisional.
+
 ## Phase 4 — Signals and paper trading
 
 **Proposed breakdown (2026-10-26, not started; needs the owner's go-ahead).** The original items 4.1-4.12 are

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -20,6 +21,7 @@ import httpx
 GAMMA = "https://gamma-api.polymarket.com"
 CLOB = "https://clob.polymarket.com"
 MAX_HISTORY_SPAN_SEC = 12 * 86400
+_DRAW = re.compile(r"Will (.+) vs\. (.+) end in a draw")
 
 
 @dataclass(frozen=True)
@@ -67,14 +69,20 @@ def parse_moneyline(event: dict[str, Any], league: str) -> PmMoneyline | None:
         if len(outcomes) != 2 or len(tokens) != 2:
             return None
         labels, toks = tuple(outcomes), tuple(tokens)
-    elif len(ml) == 3:  # soccer: "Will A win?", "Will B win?", "... end in a draw?"
+    elif len(ml) == 3:  # soccer: "Will A win?", "Will B win?", "Will A vs. B end in a draw?"
         draw = [m for m in ml if "draw" in (m.get("question") or "").lower()]
-        wins = [m for m in ml if m not in draw]
         if len(draw) != 1:
             return None
+        mo = _DRAW.match(draw[0].get("question") or "")
+        if not mo:
+            return None
+        names = mo.groups()  # slug order: held in all 106 games checkable by abbreviation on 2026-10-27
+        if _subseq(teams[0], names[1]) and _subseq(teams[1], names[0]) and not (
+                _subseq(teams[0], names[0]) and _subseq(teams[1], names[1])):
+            return None  # the abbreviations say the draw question is in the other order
         ordered = []
-        for abbr in teams:
-            hit = [m for m in wins if _subseq(abbr, (m.get("question") or "").removeprefix("Will "))]
+        for name in names:
+            hit = [m for m in ml if m is not draw[0] and (m.get("question") or "").startswith(f"Will {name} win")]
             if len(hit) != 1:
                 return None
             ordered.append(hit[0])

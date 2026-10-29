@@ -1,0 +1,29 @@
+UEL: 144 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -1.7 days before Kalshi opened it.
+best gap per market:  p50 -0.1  p90 3.0  max 8.7
+markets with any hour >= 5c: 10   >= 10c: 0   >= 20c: 0
+share of all 30427 market-hours with a gap >= 5c: 0.05%   >= 10c: 0.00%
+first Kalshi hour, gap: p50 -5.8  max 2.3
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 1.0  p90 2.0  max 10.0
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res  ctr>=10c   edge$
+  KXUELGAME-26OCT22LPOSUN-LPO          8.7  YES    14    13  23.5          192     1      14/18   no
+  KXUELGAME-26OCT22TSGOL-TSG           7.8   NO    58    57  47.5          353     1          -  yes
+  KXUELGAME-26OCT22OMOBEN-OMO          7.0  YES    18    13  26.0          193     1      13/13   no
+  KXUELGAME-26OCT22BESCRY-CRY          6.8   NO    40    39  30.5          353     1          -   no
+  KXUELGAME-26OCT22BESCRY-BES          6.8   NO    45    42  33.5          199     2      44/44   no
+  KXUELGAME-26OCT22ARAAZA-TIE          6.6  YES    16    15  23.5          198     5      20/20   no
+  KXUELGAME-26OCT22JUVREN-JUV          6.3   NO    65    61  53.0          193     1      62/61   no
+  KXUELGAME-26OCT22JUVREN-REN          6.0  YES    18    12  25.0          192     1      15/16   no
+  KXUELGAME-26OCT22USGHBS-USG          5.6   NO    73    71  64.0          199     1      72/72  yes
+  KXUELGAME-26OCT22TSGOL-OL            5.3  YES    22    21  28.5          353     1          -   no
+  KXUELGAME-26OCT22LPOSUN-SUN          4.8   NO    80    48  41.5          190     0      59/60   no
+  KXUELGAME-26OCT22ARAAZA-ARA          4.3  YES    12    11  17.0          192     0      17/18   no
+  KXUELGAME-26OCT22STUOLM-STU          4.2  YES    26    24  31.5          199     0      27/27  yes
+  KXUELGAME-26SEP17RSOBOU-RSO          3.1  YES    28    27  32.5          353     0          -   no
+  KXUELGAME-26OCT22FTCTOR-FTC          3.0   NO    72    69  64.5          199     0      70/70  yes
+skipped: unmatched 18
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.

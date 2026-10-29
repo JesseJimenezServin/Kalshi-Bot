@@ -1,0 +1,31 @@
+SERIEA: 207 Kalshi team markets compared with Polymarket, every pre-game hour (nothing within 1:00:00 of kickoff).
+gap = cents per contract after Kalshi's provisional fee, trading Kalshi against Polymarket's price for the same team.
+
+Polymarket listed the game a median -0.9 days before Kalshi opened it.
+best gap per market:  p50 -0.2  p90 2.4  max 15.5
+markets with any hour >= 5c: 11   >= 10c: 3   >= 20c: 0
+share of all 52644 market-hours with a gap >= 5c: 0.03%   >= 10c: 0.01%
+first Kalshi hour, gap: p50 -2.7  max -0.2
+|Kalshi mid - Polymarket| in the last pre-game hour: p50 0.0  p90 1.0  max 2.0
+who moved in the 6:00:00 after a >= 10c gap (3 markets): pm->kalshi 3
+real Kalshi prints >= 10c better than Polymarket, pre-game, in the 3 markets with such an hour: 5 contracts, $0.67 of edge in total (of 3015 pre-game prints)
+
+largest gaps:
+  kalshi ticker                        gap side   ask   bid    pm h after open h>=5c   +6h k/pm  res  ctr>=10c   edge$
+  KXSERIEAGAME-26SEP04GENCOM-GEN      15.5  YES    18    14  34.5           86     1      17/20   no         5    0.67
+  KXSERIEAGAME-26AUG30NAPCOM-NAP      13.3  YES    46    40  61.0          138     2      46/42   no         0    0.00
+  KXSERIEAGAME-26SEP04GENCOM-COM      10.3   NO    59    55  43.0           86     1      55/56  yes         0    0.00
+  KXSERIEAGAME-26OCT27TORCOM-TOR       9.9  YES    20    17  31.0          140     2      19/18   no
+  KXSERIEAGAME-26AUG30NAPCOM-COM       8.0   NO    33    31  21.5          154     1      30/33  yes
+  KXSERIEAGAME-26OCT27TORCOM-COM       7.8   NO    59    53  43.5          139     2      54/54  yes
+  KXSERIEAGAME-26OCT28PARUDI-PAR       7.5  YES    32    28  41.0          116     2      31/31   no
+  KXSERIEAGAME-26OCT27ROMCAG-CAG       5.8  YES    11     8  17.5          139     2        9/8   no
+  KXSERIEAGAME-26OCT27ROMCAG-ROM       5.6   NO    75    71  64.0          139     1      72/72  yes
+  KXSERIEAGAME-26AUG30LAZGEN-LAZ       5.3  YES    55    49  62.0          130     1      53/52  yes
+  KXSERIEAGAME-26AUG30LAZGEN-TIE       5.2   NO    29    25  18.5          130     1      28/27   no
+  KXSERIEAGAME-26OCT28GENJUV-GEN       5.0  YES    18    15  24.0          115     0      16/16  yes
+  KXSERIEAGAME-26SEP05FIOTOR-TOR       4.8  YES    21    16  27.0           62     0      19/20  yes
+  KXSERIEAGAME-26SEP18MONSAS-MON       4.4  YES    34    30  40.0           66     0      32/32  yes
+  KXSERIEAGAME-26OCT28ACMBFC-BFC       3.5  YES    17    13  21.5          115     0      16/16  yes
+skipped: unmatched 12
+Hourly closes only (an hour's best price may have been better); Polymarket hourly price is a last/mid, not a book; FEES PROVISIONAL.
