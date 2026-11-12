@@ -4,6 +4,10 @@ Written 2026-10-22 from the build spec. Each phase ends in a **stop**: results
 are shown and approved before the next phase starts. The bot stays in paper
 mode until explicit approval; live trading is never switched on by Claude.
 
+**Project concluded 2026-10-28.** The read-only research in Phases 2-3 found no evidence of the
+single-market >= 20c opening mispricing this plan was built to trade, so Phase 4 was not started.
+See the README for the findings and lessons. Unchecked items below are left as they stood.
+
 Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ---
