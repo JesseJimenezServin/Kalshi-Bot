@@ -190,7 +190,7 @@ event_lifecycle plus throttled retries. **The 24 h clock restarted again,
 slower droplet exposed was fixed).
 
 **Market maker and droplet items done (2026-10-23):**
-- Market maker switch-in crash fixed (market-maker commit f709159). Its window restarted
+- Market maker switch-in crash fixed (market-maker commit 69e16b7). Its window restarted
   22:55 UTC and ends 2026-11-06.
 - needrestart never auto-restarts `kalshi-*` services
   (/etc/needrestart/conf.d/90-kalshi.conf).
