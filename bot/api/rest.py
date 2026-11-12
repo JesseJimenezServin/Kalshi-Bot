@@ -154,7 +154,7 @@ class KalshiRestClient:
             await bucket.acquire(cost)
             # signer=None sends unsigned requests: public market data only, which
             # does not draw on the account's rate budget (used by analysis tools
-            # so they never compete with the running bot or the lab).
+            # so they never compete with the running bot or the market maker).
             headers = self._signer.headers(method, self._base_path + path) if self._signer else {}
             try:
                 resp = await self._http.request(method, path, params=params, json=json, headers=headers)
@@ -211,7 +211,7 @@ class KalshiRestClient:
         """Size the client buckets to this account's real tier and costs.
 
         Limits are per ACCOUNT (docs/API_NOTES.md section 3), so another
-        program on the same account -- the liquidity lab -- spends from the
+        program on the same account -- the market maker -- spends from the
         same buckets. `share` keeps that fraction for this client and leaves
         the rest as headroom."""
         if not 0 < share <= 1:

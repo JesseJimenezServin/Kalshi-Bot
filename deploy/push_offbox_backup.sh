@@ -1,9 +1,9 @@
 #!/bin/bash
-# COPIED VERBATIM from kalshi_liquidity_lab/deploy/push_offbox_backup.sh
-# (2026-10-23) so this bot's backups don't depend on the lab's checkout.
+# COPIED VERBATIM from kalshi-market-maker/deploy/push_offbox_backup.sh
+# (2026-10-23) so this bot's backups don't depend on the market maker's checkout.
 # Everything bot-specific is set by kalshi-bot-backup.service through the
 # environment -- in particular OFFBOX_MARKER, so this job can never refresh
-# the lab's success marker and hide a failing lab backup.
+# the market maker's success marker and hide a failing market-maker backup.
 # Off-box backup PUSH -- runs ON THE DROPLET, uploads a compressed snapshot
 # of the live database to an S3-compatible bucket.
 #
@@ -47,8 +47,8 @@ ALERTS_ENV="${KALSHI_ALERTS_ENV:-/etc/kalshi-alerts.env}"
 # shellcheck source=/dev/null
 [ -z "${NTFY_TOPIC:-}" ] && [ -r "$ALERTS_ENV" ] && . "$ALERTS_ENV"
 
-: "${DB_PATH:=/root/kalshi_liquidity_lab/data/paper_trading.sqlite}"
-: "${RCLONE_REMOTE:?RCLONE_REMOTE not set (e.g. offbox:kalshi-lab-backups)}"
+: "${DB_PATH:=/root/kalshi-market-maker/data/paper_trading.sqlite}"
+: "${RCLONE_REMOTE:?RCLONE_REMOTE not set (e.g. offbox:kalshi-market-maker-backups)}"
 : "${NTFY_TOPIC:?NTFY_TOPIC not set -- failure alerting is mandatory, see header}"
 : "${NTFY_URL:=https://ntfy.sh}"
 : "${STAGING_DIR:=/var/tmp}"

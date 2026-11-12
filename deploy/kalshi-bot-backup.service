@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-# Separate from the lab's backup in every path it writes:
-#  - remote folder kalshi-bot/ in the same bucket (never mixed with the lab's files)
-#  - its own staging dir and success marker (the lab's healthcheck reads the lab's)
+# Separate from the market maker's backup in every path it writes:
+#  - remote folder kalshi-bot/ in the same bucket (never mixed with the market maker's files)
+#  - its own staging dir and success marker (the market maker's healthcheck reads the market maker's)
 Environment=DB_PATH=/root/kalshi_bot/data/kalshi_bot.sqlite
 Environment=RCLONE_REMOTE=offbox:kalshi-db-backups-prod/kalshi-bot
 Environment=STAGING_DIR=/var/tmp/kalshi-bot

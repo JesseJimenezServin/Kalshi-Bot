@@ -6,7 +6,7 @@ on GET /markets?status=settled, older ones only on GET /historical/markets.
 The backfill reads both for every included series and upserts into
 `settled_markets`, so it is safe to re-run.
 
-The backfill runs beside the live bot (and the liquidity lab) on one
+The backfill runs beside the live bot (and the market maker) on one
 account's rate limit, so it uses a small share of it.
 """
 

@@ -163,7 +163,7 @@ async def cmd_backfill_history(cfg: AppConfig, only: list[str] | None) -> int:
     clock = SystemClock()
     repo = Repository.from_url(resolve_db_url(cfg.file.storage.database_url, PROJECT_ROOT))
     async with build_rest_client(cfg) as rest:
-        # Shares the account's rate limit with the running bot and the lab.
+        # Shares the account's rate limit with the running bot and the market maker.
         await rest.configure_rate_limits(share=BACKFILL_RATE_SHARE)
         d = cfg.file.discovery
         catalog = SeriesCatalog(rest, d.include_categories, d.exclude_series, clock)
@@ -198,7 +198,7 @@ async def cmd_category_study(cfg: AppConfig, categories: list[str] | None, serie
     from bot.clock import SystemClock
 
     # Unsigned: public data does not draw on the account's rate budget, so the
-    # study never competes with the running bot or the lab. Paced at ~8 req/s.
+    # study never competes with the running bot or the market maker. Paced at ~8 req/s.
     rest = KalshiRestClient(cfg.rest_base_url, None, writes_allowed=False)
     rest.read_bucket.reconfigure(80.0, 80.0)
     async with rest:

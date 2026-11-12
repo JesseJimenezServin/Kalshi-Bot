@@ -1,6 +1,6 @@
 #!/bin/bash
 # Healthcheck for kalshi-bot, run from cron every 5 minutes. Alerts through
-# the same ntfy topic as the lab's /root/healthcheck.sh (topic in
+# the same ntfy topic as the market maker's /root/healthcheck.sh (topic in
 # /etc/kalshi-alerts.env, chmod 600, never in git). Checks:
 #
 #   1. kalshi-bot is active
@@ -13,7 +13,7 @@
 #   5. books are not going stale en masse (WS feed silently broken)
 #   6. an off-box backup has SUCCEEDED in the last 36 h
 #
-# Like the lab's check, it cannot report that the whole droplet is gone.
+# Like the market maker's check, it cannot report that the whole droplet is gone.
 
 set -u
 

@@ -15,7 +15,7 @@ docs/API_NOTES.md: book_side/intent on orders (V2 orders are bid/ask on
 YES only, section 6); exchange_index (balances are per shard, section 11);
 strike fields on markets (sibling model, section 9); inputs JSON on signals
 (the spec asks for every decision with its inputs). Two extra tables:
-`trades`, the raw public tape for watched markets -- the liquidity lab's
+`trades`, the raw public tape for watched markets -- the market maker's
 costliest gap was not persisting it (its DATA.md section 3) -- and
 `bot_events`, operational events (reconnects, gaps, resyncs, sweeps,
 errors) for the Phase 2 run report.

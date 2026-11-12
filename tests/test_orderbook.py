@@ -38,7 +38,7 @@ def test_delta_adds_and_reduces_levels() -> None:
 
 
 def test_phantom_level_regression_fractional_cancel_removes_level() -> None:
-    """The liquidity lab's phantom-level bug: float residue (5.55e-17) kept a
+    """The market maker's phantom-level bug: float residue (5.55e-17) kept a
     cancelled level alive as the best bid. Decimal cancels exactly."""
     b = book()
     for d in ["0.1", "0.2", "0.3"]:

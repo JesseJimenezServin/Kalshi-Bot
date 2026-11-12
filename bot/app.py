@@ -45,7 +45,7 @@ from bot.storage.repo import Repository
 log = get_logger("app")
 
 HEARTBEAT_SEC = 60.0
-# Kalshi meters per account and the liquidity lab shares this account, so
+# Kalshi meters per account and the market maker shares this account, so
 # this bot takes 75% of the budget and leaves the rest as headroom.
 RATE_LIMIT_SHARE = 0.75
 HEARTBEAT_EVENT_EVERY = 10  # heartbeats

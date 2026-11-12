@@ -1,9 +1,9 @@
 # Deployment
 
-Runs on the liquidity lab's droplet (`ssh kalshi`) alongside the lab, chosen
-2026-10-23 (docs/PLAN.md decision B). Everything is separate from the lab:
+Runs on the market maker's droplet (`ssh kalshi`) alongside the market maker, chosen
+2026-10-23 (docs/PLAN.md decision B). Everything is separate from the market maker:
 its own directory, venv, `.env`, database and lock file, under
-`/root/kalshi_bot`. The systemd unit gives the lab priority on CPU, disk and
+`/root/kalshi_bot`. The systemd unit gives the market maker priority on CPU, disk and
 memory, and the bot takes only 75% of the account's API rate limit.
 
 ## Deploy a commit
@@ -40,14 +40,14 @@ Data lives in `/root/kalshi_bot/data/kalshi_bot.sqlite`.
 
 ## Backups
 
-`kalshi-bot-backup.timer` runs daily at 04:30 UTC (an hour after the lab's)
+`kalshi-bot-backup.timer` runs daily at 04:30 UTC (an hour after the market maker's)
 and uploads a VACUUM INTO snapshot, integrity-checked and gzipped, to
 `offbox:kalshi-db-backups-prod/kalshi-bot/`. The script is a copy of the
-lab's. Every path it writes is the bot's own: remote folder, staging
+market maker's. Every path it writes is the bot's own: remote folder, staging
 directory and success marker
-(`/var/lib/kalshi-bot-offbox/last-success`). The lab's healthcheck reads
-the lab's marker, so this job must never touch it. Failures alert through
-the lab's ntfy topic.
+(`/var/lib/kalshi-bot-offbox/last-success`). The market maker's healthcheck reads
+the market maker's marker, so this job must never touch it. Failures alert through
+the market maker's ntfy topic.
 
 ```bash
 ssh kalshi 'systemctl list-timers kalshi-bot-backup.timer; cat /var/lib/kalshi-bot-offbox/last-success'

@@ -3,7 +3,7 @@ Records watched markets' order books and trades (plan 2.6).
 
 Recording starts in Phase 2, before any strategy exists, because new-market
 books are "the most valuable input for tuning later" (spec) -- and because
-the liquidity lab spent two weeks unable to answer its gating question for
+the market maker spent two weeks unable to answer its gating question for
 want of a raw tape it had never persisted.
 
 Snapshots: when a book has changed, at most once per min_interval; and at
@@ -54,8 +54,8 @@ class Recorder:
         self._last: dict[str, tuple[float, int]] = {}  # ticker -> (recorded_at, book version)
         self._trade_buffer: list[dict[str, Any]] = []
         self.stats = RecorderStats()
-        # Disk guard. The bot shares a droplet with the liquidity lab, and a
-        # full disk would kill the lab's frozen test along with this bot.
+        # Disk guard. The bot shares a droplet with the market maker, and a
+        # full disk would kill the market maker's frozen test along with this bot.
         # Below min_free_gb, snapshots pause (trades, far smaller, continue);
         # they resume with 0.5 GB of hysteresis.
         self._disk_path = disk_path

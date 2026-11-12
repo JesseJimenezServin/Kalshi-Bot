@@ -16,8 +16,8 @@ foundation, discovery and recording, and fair-value models. Phase 4
 is in [`docs/PLAN.md`](docs/PLAN.md).
 
 > **Sister project:** [kalshi-market-maker](https://github.com/JesseJimenezServin/kalshi-market-maker),
-> an earlier market-making experiment (called "the liquidity lab" in this
-> code). Its failures shaped how this one was built.
+> an earlier market-making experiment, originally called "the liquidity
+> lab". Its failures shaped how this one was built.
 
 ---
 

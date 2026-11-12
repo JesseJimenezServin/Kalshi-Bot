@@ -9,7 +9,7 @@ so the log is the complete record. A channel adds delivery on top:
                    silently dropping alerts.
 
 Repeats of the same key are throttled, so a flapping condition is legible
-instead of a flood (the liquidity lab's healthcheck lesson).
+instead of a flood (the market maker's healthcheck lesson).
 """
 
 from __future__ import annotations

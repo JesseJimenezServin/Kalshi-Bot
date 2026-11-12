@@ -91,8 +91,8 @@ Source: [Rate Limits](https://docs.kalshi.com/getting_started/rate_limits.md)
 
 **→ Impact:** the token bucket defaults to Basic (20 reads/s, 10 writes/s)
 and is overridden at startup from `/account/limits` plus endpoint costs.
-Because limits are **per account**, this bot and the liquidity lab share one
-budget if they use the same account. The lab is light, but the bucket should
+Because limits are **per account**, this bot and the market maker share one
+budget if they use the same account. The market maker is light, but the bucket should
 leave headroom. **Measured 2026-10-22 on the owner's account (`GET /account/limits`):
 `usage_tier: basic`, read refill 200/s with bucket capacity 600 (a 3 s burst,
 more than the docs' stated 1 s), write refill 100/s with capacity 100.** Most
@@ -124,7 +124,7 @@ Source: [Orderbook Responses](https://docs.kalshi.com/getting_started/orderbook_
   automatically.
 
 **→ Impact:** the spec's `yes_asks` column is derived (`1 − no bid`), not
-received. Fractional sizes mean the liquidity lab's phantom-level bug applies
+received. Fractional sizes mean the market maker's phantom-level bug applies
 (a cancelled level left at `5.55e-17`). Fix: decimal arithmetic, and remove a
 level when its size is ≤ 0. If the per-subscription market limit is low, the
 14:00 UTC burst (§10) may need several subscriptions.
@@ -401,7 +401,7 @@ spec's fallback rule and Kalshi's own advice.
 7. **Balances are per exchange shard.** Weather is shard 0.
 8. **The daily 14:00 UTC burst**: about 290 markets open in one minute.
 9. **Ed25519 keys** are now the default. Auth supports both.
-10. **Rate limits are per account**, shared with the liquidity lab if the
+10. **Rate limits are per account**, shared with the market maker if the
     same account is used.
 
 ## Owner actions

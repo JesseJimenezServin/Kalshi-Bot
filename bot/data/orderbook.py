@@ -5,10 +5,10 @@ Kalshi sends BIDS ONLY, for YES and for NO. Asks are derived:
     best YES ask = 1 - best NO bid        best NO ask = 1 - best YES bid
 because a NO bid at p is an offer to sell YES at 1 - p.
 
-All arithmetic is Decimal. The liquidity lab's books held float sizes, so a
+All arithmetic is Decimal. The market maker's books held float sizes, so a
 level cancelled to nothing landed on residue like 5.55e-17, was never removed,
 and became the "best" price -- 31.6% of its logged levels were phantoms, and
-they manufactured its entire reported profit (lab AUTOPSY.md section 4.1).
+they manufactured its entire reported profit (the market maker's AUTOPSY.md, section 4.1).
 Decimal deltas cancel exactly, and a level is dropped the moment it reaches
 <= 0.
 """

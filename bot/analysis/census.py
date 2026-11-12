@@ -4,7 +4,7 @@ Opportunity census (plan 2.12): does the edge the strategy needs exist at all?
 Before building fair-value models and paper trading (Phases 3-4), measure on
 recorded data how often a newly opened market is mispriced against its
 siblings by the strategy's entry threshold, after fees, at prices you could
-actually trade. The liquidity lab's lesson: measure the thing that decides
+actually trade. The market maker's lesson: measure the thing that decides
 the project before building everything downstream of it.
 
 Method, per mutually exclusive event, over each market's first

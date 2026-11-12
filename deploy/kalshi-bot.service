@@ -14,8 +14,8 @@ TimeoutStopSec=30
 Restart=always
 RestartSec=10
 
-# Shares the droplet with the liquidity lab, whose test window is frozen until
-# 2026-11-05. The lab keeps priority on CPU, disk and memory.
+# Shares the droplet with the market maker, whose test window is frozen until
+# 2026-11-05. The market maker keeps priority on CPU, disk and memory.
 Nice=10
 CPUWeight=50
 IOSchedulingClass=best-effort

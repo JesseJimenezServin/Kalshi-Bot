@@ -1,7 +1,7 @@
 """
 Only one bot process per database.
 
-The liquidity lab ran several unaware copies at once by accident and
+The market maker ran several unaware copies at once by accident and
 corrupted a data window with concurrent writers (its 2026-09-01 incident).
 An OS file lock is released automatically if the process dies, so there is
 no stale-lock cleanup to get wrong.

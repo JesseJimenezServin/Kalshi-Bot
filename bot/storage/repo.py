@@ -1,7 +1,7 @@
 """
 Data access. The only module that opens sessions.
 
-SQLite runs in WAL mode with a busy timeout: the liquidity lab lost data to
+SQLite runs in WAL mode with a busy timeout: the market maker lost data to
 "database is locked" until it switched (its 2026-10-04 notes), because a
 reader such as a backup or report blocked the writer.
 

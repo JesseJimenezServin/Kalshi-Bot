@@ -42,7 +42,7 @@ are listed as owner actions. 0.8 tier measured with the owner's key: Basic.
 - [x] 1.7 Pydantic response models: market, event, orderbook, balance, position, order, fill.
 - [x] 1.8 Read methods with pagination; tests on a mocked HTTP transport.
 - [x] 1.9 `place_order` / `cancel_order` accept only an `Approved` object that only the risk manager can create. Mock-tested; unused until Phase 6.
-- [x] 1.9b **Write guard.** Paper mode reads production with a key that *can* trade, so the REST client refuses every non-GET request unless mode is `demo` (demo URL) or `live` with `CONFIRM_LIVE_TRADING=yes`. Enforced in the client itself, below the risk manager, and tested. Same idea as the liquidity lab's GET-only guard.
+- [x] 1.9b **Write guard.** Paper mode reads production with a key that *can* trade, so the REST client refuses every non-GET request unless mode is `demo` (demo URL) or `live` with `CONFIRM_LIVE_TRADING=yes`. Enforced in the client itself, below the risk manager, and tested. Same idea as the market maker's GET-only guard.
 - [x] 1.10 `storage/models.py` (all 8 tables, Postgres-portable) + `storage/repo.py`; SQLite WAL; tests on a temp DB.
 - [x] 1.11 CLI skeleton: `run`, `kill`, `report`, plus `check` (live authenticated calls).
 - [x] 1.12 **Acceptance:** authenticated **read-only** calls to production return balance and open markets (decision A); config and write-guard tests pass. **Stop.**
@@ -57,7 +57,7 @@ section; `bot/clock.py` (one injectable clock, needed for exact replay);
 `mve_filter=exclude` on market listing (drops combo markets).
 
 ## Phase 2 — Discovery and recording
-- [x] 2.1 `data/orderbook.py`: snapshot + deltas, Yes/No asks derived from bids, `best_yes_bid`, `best_yes_ask`, `depth_at_or_better`. Includes the liquidity lab's float-residue (phantom level) fix and its test.
+- [x] 2.1 `data/orderbook.py`: snapshot + deltas, Yes/No asks derived from bids, `best_yes_bid`, `best_yes_ask`, `depth_at_or_better`. Includes the market maker's float-residue (phantom level) fix and its test.
 - [x] 2.2 `api/ws.py`: auth, dynamic tickers, sequence-gap detection → REST resync, reconnect with backoff + resubscribe. Tested against a fake WS server.
 - [x] 2.3 `discovery/scanner.py`: 5s poll (or lifecycle channel); new = unseen ticker + opened within 10 min; store; emit NewMarket.
 - [x] 2.4 Category and excluded-series filters, with cached event/series lookups.
@@ -83,10 +83,10 @@ against production, read-only:
   awaiting its own command replies (handlers now go through a queue), and
   "already emitted" lived only in memory (now `markets.emitted_at`).
 
-**2.10 done 2026-10-23:** deployed commit `2e64aa2` to the lab droplet as systemd
-`kalshi-bot` (see deploy/README.md), below the lab in CPU/IO/memory priority,
+**2.10 done 2026-10-23:** deployed commit `2e64aa2` to the market maker's droplet as systemd
+`kalshi-bot` (see deploy/README.md), below the market maker in CPU/IO/memory priority,
 at 75% of the account rate limit. Startup: 458 series swept in 49 s, 1,293
-markets registered, lifecycle feed connected, 65 MB RSS, lab services active.
+markets registered, lifecycle feed connected, 65 MB RSS, market-maker services active.
 
 **2.11 run started 2026-10-23 17:38 UTC (restarted 18:16 UTC, see Phase 3 notes)**, which
 covers the 2026-10-24 14:00 UTC open burst. Check with `kalshi-bot stats`.
@@ -102,10 +102,10 @@ bucket being cheap, so gaps cluster by event. The report counts markets, so
 read it with that in mind.
 
 **2.13 backups (2026-10-23), added to the plan:** a daily 04:30 UTC off-box
-backup of the bot's DB to the lab's B2 bucket under `kalshi-bot/`, kept
-separate from the lab's files, staging and success marker (the lab's
+backup of the bot's DB to the market maker's B2 bucket under `kalshi-bot/`, kept
+separate from the market maker's files, staging and success marker (the market maker's
 healthcheck reads its own marker). First run uploaded; **restore verified**
-(integrity ok, row counts match live, lab's 26 files untouched).
+(integrity ok, row counts match live, the market maker's 26 files untouched).
 
 **Remaining:** 2.11b (24 h report, after 2026-10-24 17:38 UTC) and the first
 census on real data (after 2026-10-24 ~15:00 UTC).
@@ -189,25 +189,25 @@ event_lifecycle plus throttled retries. **The 24 h clock restarted again,
 252 tests pass, here and on the droplet (5/5 runs, after a test race the
 slower droplet exposed was fixed).
 
-**Lab and droplet items done (2026-10-23):**
-- Lab switch-in crash fixed (lab commit c12f620). Its window restarted
+**Market maker and droplet items done (2026-10-23):**
+- Market maker switch-in crash fixed (market-maker commit f709159). Its window restarted
   22:55 UTC and ends 2026-11-06.
 - needrestart never auto-restarts `kalshi-*` services
   (/etc/needrestart/conf.d/90-kalshi.conf).
 - SSH is key-only (/etc/ssh/sshd_config.d/00-kalshi-hardening.conf).
   Verified: a new key login works, and a password attempt is refused.
 - Not done: a kernel reboot is pending (no auto-reboot). Do it after the
-  lab window ends.
+  market-maker window ends.
 
 **Droplet and data, 2026-10-26.**
 - 72 h of widened recording: 24,104 markets declared new, ~5M book snapshots, 231k trades, 0 WS gaps.
-- Problems found: the lab's daily backups made ~6 GB temporary copies, which paused recording twice (13 + 4 min) and
+- Problems found: the market maker's daily backups made ~6 GB temporary copies, which paused recording twice (13 + 4 min) and
   stalled the 09:04 scan every day; the 600-market watch cap overflowed at the 12:00/14:00 UTC bursts (3,122 new
   markets skipped); the 72 h census was OOM-killed.
-- Fixed: lab put dormant at the owner's request (units disabled, cron lines commented; DB archived with a verified
+- Fixed: market maker put dormant at the owner's request (units disabled, cron lines commented; DB archived with a verified
   sha256 to B2 `final/` and the owner's Mac, then deleted from the droplet: 17 GB free). Watch cap raised to 1200
   (735 watched right after the deploy). Census folds events in one at a time (~175 MB RSS; ran under a 350 MB
-  systemd cap). `deploy/healthcheck.sh` alerts for the bot through the lab's ntfy topic, cron every 5 min.
+  systemd cap). `deploy/healthcheck.sh` alerts for the bot through the market maker's ntfy topic, cron every 5 min.
 - Step 4 (opening burst): median first book 4-12 s after open per category; 0 stale books. Capacity skips fixed as above.
 
 **72 h census (2026-10-26, provisional fees, >= 50 contracts at the price):**
@@ -405,8 +405,8 @@ explicit approval; the owner makes the mode switch.
 ---
 
 ## Open decisions (needed before the phase noted)
-- **A. Data source — DECIDED 2026-10-22.** Paper mode and recording read *production* market data, read-only. The owner's experience on the liquidity lab: demo "does very little" (lab notes 2026-08-31: mock funds, not reflective of real markets). Phase 1 acceptance uses production reads. Phase 6 (order mechanics) is decided when we reach it: demo for plumbing only, or tiny live orders with explicit approval.
-- **B. 24h host — DECIDED 2026-10-23:** the lab droplet, alongside the lab, at lower priority (owner's choice over a second droplet).
+- **A. Data source — DECIDED 2026-10-22.** Paper mode and recording read *production* market data, read-only. The owner's experience on the market maker: demo "does very little" (market-maker notes 2026-08-31: mock funds, not reflective of real markets). Phase 1 acceptance uses production reads. Phase 6 (order mechanics) is decided when we reach it: demo for plumbing only, or tiny live orders with explicit approval.
+- **B. 24h host — DECIDED 2026-10-23:** the market maker's droplet, alongside the market maker, at lower priority (owner's choice over a second droplet).
 - **C. Thin-book exits (before 4.9).** Spec doesn't say what happens after the 5¢ slippage cap + alert; recommended: stop re-quoting, hold, alert. Also note the 15¢ stop is smaller than the 20¢ entry edge. Rules unchanged without approval; every exit logged so Phase 5 can judge them.
 - **D. "Similar parameters" — IMPLEMENTED AS PROPOSAL 2026-10-23, owner to confirm:** same series, same event size, same strike-axis position, +/-45-day seasonal preference; confidence capped at 0.5 (below min_confidence) so it corroborates but never triggers.
 - **E. External weather adapter (before 3.10).** NWS API is free. Add at the end of Phase 3, or later?
